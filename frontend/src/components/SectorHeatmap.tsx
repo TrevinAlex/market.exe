@@ -1,0 +1,71 @@
+import type { Regime, SectorRegime } from '../api/types';
+import { REGIMES, REGIME_COLOR_KEY, colorHex, thermalColor } from '../theme/tokens';
+
+/** A sector counts as "under stress" when at least this % of its stocks are in Stress or Distribution. */
+export const SECTOR_STRESS_PCT = 50;
+
+export function SectorHeatmap({ sectors }: { sectors: SectorRegime[] }) {
+  return (
+    <ul className="heat-grid" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+      {sectors.map((s) => (
+        <li key={s.sector}>
+          <SectorTile s={s} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SectorTile({ s }: { s: SectorRegime }) {
+  const heat = thermalColor(s.avg_score);
+  const regimes = REGIMES.filter((r) => (s.distribution[r] ?? 0) > 0);
+  const breakdown = REGIMES.map((r) => `${s.distribution[r] ?? 0} ${r}`).join(', ');
+  const stressed = s.stressed_pct >= SECTOR_STRESS_PCT;
+
+  return (
+    <article
+      className="heat-tile"
+      style={{ ['--heat' as string]: heat, height: '100%' }}
+      aria-label={`${s.sector}: average score ${s.avg_score.toFixed(1)}, ${s.stressed_pct.toFixed(
+        0,
+      )}% stressed, ${s.total} stocks (${breakdown})`}
+    >
+      <div className="heat-meta">
+        <h3>{s.sector}</h3>
+        <span>{s.total} stk</span>
+      </div>
+
+      <div className="heat-big" aria-hidden="true">
+        {s.stressed_pct.toFixed(0)}%<small>STRESSED{stressed ? ' ▲' : ''}</small>
+      </div>
+
+      <div className="heat-meta" aria-hidden="true">
+        <span>AVG SCORE</span>
+        <span className="mono" style={{ color: heat }}>
+          {s.avg_score.toFixed(1)} / 100
+        </span>
+      </div>
+
+      <div className="stackbar" aria-hidden="true">
+        {regimes.map((r) => (
+          <span
+            key={r}
+            title={`${r}: ${s.distribution[r]}`}
+            style={{
+              width: `${((s.distribution[r] ?? 0) / Math.max(1, s.total)) * 100}%`,
+              background: colorHex(REGIME_COLOR_KEY[r as Regime]),
+            }}
+          />
+        ))}
+      </div>
+      <ul className="legend" aria-hidden="true">
+        {regimes.map((r) => (
+          <li key={r}>
+            <i style={{ background: colorHex(REGIME_COLOR_KEY[r]) }} />
+            {r.slice(0, 4).toUpperCase()} {s.distribution[r]}
+          </li>
+        ))}
+      </ul>
+    </article>
+  );
+}
