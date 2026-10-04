@@ -15,9 +15,13 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 
+from pathlib import Path
+
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.schemas import (
     HeatmapResponse,
@@ -42,7 +46,34 @@ app = FastAPI(
     title="MARKET.EXE",
     description="IDX stock health regime scanner + agent-based scenario simulator.",
     version="0.1.0",
+    docs_url=None,   # disable the CDN-backed default; served locally below
+    redoc_url=None,
 )
+
+# Serve Swagger UI assets locally (no CDN dependency — works offline).
+_STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+
+_DOCS_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MARKET.EXE — API docs</title>
+  <link rel="stylesheet" href="/static/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="/static/swagger-ui-bundle.js"></script>
+  <script src="/static/swagger-init.js"></script>
+</body>
+</html>"""
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html() -> HTMLResponse:
+    """Swagger UI from local assets only — no CDN, no inline script (CSP-safe)."""
+    return HTMLResponse(_DOCS_HTML)
 
 # --- security middleware (order: added last runs first) -------------------
 app.add_middleware(SecurityHeadersMiddleware)
