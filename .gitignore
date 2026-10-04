@@ -1,8 +1,9 @@
-# Secrets — NEVER commit the real key
+# Secrets — NEVER commit the real key (any directory)
 .env
-backend/.env
-*.env
-!*.env.example
+**/.env
+# ...but DO commit the template
+!.env.example
+!**/.env.example
 
 # Python
 .venv/
