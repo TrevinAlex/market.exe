@@ -8,6 +8,16 @@ GET  /api/company/{symbol}        score a single company
 GET  /api/heatmap                 sector-level regime distribution
 POST /api/simulate/{symbol}       run the ABM Monte Carlo for one stock
 POST /api/admin/login             exchange APP_PASSWORD for an admin bearer token
+POST /api/auth/register           create a user account -> user bearer token
+POST /api/auth/login              username + password -> user bearer token
+GET  /api/auth/me                 current user (needs user bearer token)
+GET  /api/history                 logged-in user's activity (Supabase)
+DELETE /api/history[/{id}]        clear all / one history entry
+GET  /api/pins[?scores=true]      logged-in user's pinned stocks (Supabase)
+PUT  /api/pins/{symbol}           pin a stock
+DELETE /api/pins/{symbol}         unpin a stock
+
+Company lookups and simulations made while logged in are saved to history.
 
 Data routes are public. Admin/edit routes use ``dependencies=admin_only`` and
 require ``Authorization: Bearer <token>`` (see app/auth.py).
@@ -17,12 +27,14 @@ to it and handles API errors from the upstream Sectors API.
 """
 from __future__ import annotations
 
+import asyncio
 from collections import Counter, defaultdict
+from typing import Literal
 
 from pathlib import Path
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,6 +42,10 @@ from pydantic import BaseModel, Field
 
 from app.api.schemas import (
     HeatmapResponse,
+    HistoryEntry,
+    HistoryResponse,
+    PinModel,
+    PinsResponse,
     ScoreModel,
     ScreenResponse,
     SectorRegimeModel,
@@ -54,6 +70,9 @@ from app.security import (
     validate_symbol,
 )
 from app.services.sectors_client import sectors_client
+from app.services.history import history_store
+from app.services.pins import PinLimitError, pin_store
+from app.users import User, issue_user_token, optional_user, require_user, user_store
 
 app = FastAPI(
     title="MARKET.EXE",
@@ -100,7 +119,7 @@ app.add_middleware(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins_list,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -113,6 +132,11 @@ async def root() -> dict:
         "description": "IDX stock health regime scanner + agent-based scenario simulator.",
         "docs": "/docs",
         "admin": "POST /api/admin/login {\"password\": ...} -> token for admin-only routes",
+        "auth": {
+            "register": "POST /api/auth/register {\"username\": ..., \"password\": ...}",
+            "login": "POST /api/auth/login {\"username\": ..., \"password\": ...}",
+            "me": "GET /api/auth/me  (Authorization: Bearer <token>)",
+        },
         "endpoints": {
             "liveness": "GET /health",
             "screen": "GET /api/screen?index=LQ45&limit=10",
@@ -154,6 +178,65 @@ async def admin_login(body: LoginRequest, request: Request) -> LoginResponse:
     token, ttl = issue_token()
     return LoginResponse(access_token=token, expires_in=ttl)
 
+
+# --- user accounts ----------------------------------------------------------
+
+
+class UserCredentials(BaseModel):
+    # Letters, digits, underscore; 3-32 chars. Case-insensitive uniqueness.
+    username: str = Field(min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_]+$")
+    password: str = Field(min_length=8, max_length=128)
+
+
+class UserModel(BaseModel):
+    id: int
+    username: str
+    created_at: int
+
+
+class UserAuthResponse(LoginResponse):
+    user: UserModel
+
+
+def _user_auth_response(user: User) -> UserAuthResponse:
+    token, ttl = issue_user_token(user)
+    return UserAuthResponse(
+        access_token=token,
+        expires_in=ttl,
+        user=UserModel(id=user.id, username=user.username, created_at=user.created_at),
+    )
+
+
+@app.post("/api/auth/register", response_model=UserAuthResponse, status_code=201)
+async def user_register(body: UserCredentials) -> UserAuthResponse:
+    """Create a user account and return a bearer token (auto-login)."""
+    user = user_store.create(body.username, body.password)
+    if user is None:
+        raise HTTPException(status_code=409, detail="Username is already taken.")
+    return _user_auth_response(user)
+
+
+@app.post("/api/auth/login", response_model=UserAuthResponse)
+async def user_login(body: UserCredentials, request: Request) -> UserAuthResponse:
+    """Exchange username + password for a user bearer token."""
+    ip = guard_login_attempt(request)
+    user = user_store.authenticate(body.username, body.password)
+    if user is None:
+        record_failure(ip)
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    clear_failures(ip)
+    return _user_auth_response(user)
+
+
+@app.get("/api/auth/me", response_model=UserModel)
+async def user_me(user: User = Depends(require_user)) -> UserModel:
+    """Return the currently logged-in user."""
+    return UserModel(id=user.id, username=user.username, created_at=user.created_at)
+
+
+# Attach to any route that should need a logged-in user:
+#   @app.get(..., dependencies=user_only)
+user_only = [Depends(require_user)]
 
 # Attach to any future admin/edit route: @app.post(..., dependencies=admin_only)
 # Data routes below are public -- anyone can view without logging in.
@@ -202,7 +285,11 @@ async def screen(
 
 
 @app.get("/api/company/{symbol}", response_model=ScoreModel)
-async def company(symbol: str) -> ScoreModel:
+async def company(
+    symbol: str,
+    background: BackgroundTasks,
+    user: User | None = Depends(optional_user),
+) -> ScoreModel:
     symbol = validate_symbol(symbol)
     try:
         report = await sectors_client.company_report(symbol)
@@ -212,7 +299,22 @@ async def company(symbol: str) -> ScoreModel:
         ) from e
     if not report:
         raise HTTPException(status_code=404, detail=f"Company '{symbol}' not found on IDX.")
-    return ScoreModel(**score_company(flatten_report(report)).to_dict())
+    score = ScoreModel(**score_company(flatten_report(report)).to_dict())
+    if user:
+        background.add_task(
+            history_store.record,
+            user.uid,
+            "company",
+            _ticker(symbol),
+            {},
+            {
+                "company_name": score.company_name,
+                "composite": score.composite,
+                "regime": score.regime,
+                "last_close_price": score.last_close_price,
+            },
+        )
+    return score
 
 
 @app.get("/api/heatmap", response_model=HeatmapResponse)
@@ -251,8 +353,10 @@ async def heatmap(
 @app.post("/api/simulate/{symbol}", response_model=SimulationResponse)
 async def simulate(
     symbol: str,
+    background: BackgroundTasks,
     runs: int = Query(default=500, ge=50, le=2000),
     days: int = Query(default=30, ge=5, le=120),
+    user: User | None = Depends(optional_user),
 ) -> SimulationResponse:
     """Score a stock, then run the agent-based Monte Carlo scenario engine."""
     symbol = validate_symbol(symbol)
@@ -272,4 +376,134 @@ async def simulate(
         runs=runs,
         days=days,
     )
+    if user:
+        background.add_task(
+            history_store.record,
+            user.uid,
+            "simulation",
+            _ticker(symbol),
+            {"runs": runs, "days": days},
+            {
+                "company_name": result.company_name,
+                "composite": result.composite,
+                "regime": result.regime,
+                "current_price": sim["current_price"],
+                "expected_return_pct": sim["expected_return_pct"],
+                "prob_price_up": sim["prob_price_up"],
+                "p50": sim["bands"]["p50"],
+            },
+        )
     return SimulationResponse(symbol=result.symbol, **sim)
+
+
+# --- user history (Supabase) -------------------------------------------------
+
+
+def _ticker(symbol: str) -> str:
+    return symbol.upper().removesuffix(".JK")
+
+
+def _require_history() -> None:
+    if not history_store.enabled:
+        raise HTTPException(status_code=503, detail="History is not configured.")
+
+
+async def _supabase_call(coro):
+    try:
+        return await coro
+    except httpx.HTTPError as e:
+        raise HTTPException(status_code=502, detail=safe_detail("Database (Supabase) error", e)) from e
+
+
+@app.get(
+    "/api/history",
+    response_model=HistoryResponse,
+    dependencies=[Depends(_require_history)],
+)
+async def history_list(
+    user: User = Depends(require_user),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    kind: Literal["company", "simulation"] | None = Query(default=None),
+) -> HistoryResponse:
+    """The logged-in user's own activity, newest first."""
+    rows, total = await _supabase_call(history_store.list(user.uid, limit, offset, kind))
+    return HistoryResponse(total=total, results=[HistoryEntry(**r) for r in rows])
+
+
+@app.delete("/api/history", dependencies=[Depends(_require_history)])
+async def history_clear(user: User = Depends(require_user)) -> dict:
+    """Delete all of the logged-in user's history."""
+    return {"deleted": await _supabase_call(history_store.delete(user.uid))}
+
+
+@app.delete("/api/history/{entry_id}", dependencies=[Depends(_require_history)])
+async def history_delete(entry_id: int, user: User = Depends(require_user)) -> dict:
+    """Delete one history entry (only if it belongs to the logged-in user)."""
+    n = await _supabase_call(history_store.delete(user.uid, entry_id))
+    if n == 0:
+        raise HTTPException(status_code=404, detail="History entry not found.")
+    return {"deleted": n}
+
+
+# --- pinned stocks / watchlist (Supabase) -------------------------------------
+
+
+def _require_pins() -> None:
+    if not pin_store.enabled:
+        raise HTTPException(status_code=503, detail="Pins are not configured.")
+
+
+async def _score_one(symbol: str) -> ScoreModel | None:
+    """Score a pinned stock. None if it can't be fetched (delisted, API down)."""
+    try:
+        report = await sectors_client.company_report(symbol)
+    except httpx.HTTPError:
+        return None
+    if not report:
+        return None
+    return ScoreModel(**score_company(flatten_report(report)).to_dict())
+
+
+@app.get("/api/pins", response_model=PinsResponse, dependencies=[Depends(_require_pins)])
+async def pins_list(
+    user: User = Depends(require_user),
+    scores: bool = Query(
+        default=False,
+        description="Also score every pinned stock (4 Sectors credits each, cached).",
+    ),
+) -> PinsResponse:
+    """The logged-in user's pinned stocks, in the order they were pinned."""
+    rows = await _supabase_call(pin_store.list(user.uid))
+    pins = [PinModel(**r) for r in rows]
+    if scores and pins:
+        sem = asyncio.Semaphore(5)  # don't hammer the Sectors API
+
+        async def bounded(sym: str):
+            async with sem:
+                return await _score_one(sym)
+
+        for pin, score in zip(pins, await asyncio.gather(*(bounded(p.symbol) for p in pins))):
+            pin.score = score
+    return PinsResponse(max_pins=pin_store.max_pins, pins=pins)
+
+
+@app.put("/api/pins/{symbol}", dependencies=[Depends(_require_pins)])
+async def pins_add(symbol: str, user: User = Depends(require_user)) -> dict:
+    """Pin a stock (idempotent)."""
+    sym = _ticker(validate_symbol(symbol))
+    try:
+        added = await _supabase_call(pin_store.add(user.uid, sym))
+    except PinLimitError:
+        raise HTTPException(
+            status_code=409, detail=f"Pin limit reached ({pin_store.max_pins}). Unpin a stock first."
+        )
+    return {"symbol": sym, "pinned": True, "added": added}
+
+
+@app.delete("/api/pins/{symbol}", dependencies=[Depends(_require_pins)])
+async def pins_remove(symbol: str, user: User = Depends(require_user)) -> dict:
+    """Unpin a stock (idempotent)."""
+    sym = _ticker(validate_symbol(symbol))
+    removed = await _supabase_call(pin_store.remove(user.uid, sym))
+    return {"symbol": sym, "pinned": False, "removed": removed}

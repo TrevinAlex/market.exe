@@ -1,14 +1,24 @@
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { AuthForm } from './components/AuthForm';
+import { useAuth } from './hooks/useAuth';
 import { CompanyPage } from './pages/CompanyPage';
 import { HeatmapPage } from './pages/HeatmapPage';
+import { HistoryPage } from './pages/HistoryPage';
+import { PinnedPage } from './pages/PinnedPage';
 import { ScreenerPage } from './pages/ScreenerPage';
 
-type Tab = 'screener' | 'heatmap' | 'company';
-const TABS: { id: Tab; label: string }[] = [
+type Tab = 'screener' | 'heatmap' | 'company' | 'pinned' | 'history';
+const BASE_TABS: { id: Tab; label: string }[] = [
   { id: 'screener', label: 'SCREENER' },
   { id: 'heatmap', label: 'HEATMAP' },
   { id: 'company', label: 'COMPANY' },
 ];
+// Only shown to logged-in users.
+const USER_TABS: { id: Tab; label: string }[] = [
+  { id: 'pinned', label: '★ PINNED' },
+  { id: 'history', label: 'HISTORY' },
+];
+const USER_ONLY = new Set<Tab>(USER_TABS.map((t) => t.id));
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('screener');
@@ -16,11 +26,34 @@ export default function App() {
   // tabs keeps filters and doesn't re-spend API credits.
   const [visited, setVisited] = useState<Set<Tab>>(new Set(['screener']));
   const [symbol, setSymbol] = useState<string | null>(null);
-  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ screener: null, heatmap: null, company: null });
+  const [showAuth, setShowAuth] = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
+  const [pinnedKey, setPinnedKey] = useState(0);
+  const { user } = useAuth();
+  const TABS = user ? [...BASE_TABS, ...USER_TABS] : BASE_TABS;
+  const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({
+    screener: null,
+    heatmap: null,
+    company: null,
+    pinned: null,
+    history: null,
+  });
+
+  // On logout, leave (and unmount) the user-only tabs.
+  useEffect(() => {
+    if (user) return;
+    setTab((t) => (USER_ONLY.has(t) ? 'screener' : t));
+    setVisited((v) => {
+      if (![...v].some((t) => USER_ONLY.has(t))) return v;
+      return new Set([...v].filter((t) => !USER_ONLY.has(t)));
+    });
+  }, [user]);
 
   const select = (t: Tab, focus = false) => {
     setTab(t);
     setVisited((v) => (v.has(t) ? v : new Set(v).add(t)));
+    if (t === 'history') setHistoryKey((k) => k + 1); // always show fresh entries
+    if (t === 'pinned') setPinnedKey((k) => k + 1);
     if (focus) tabRefs.current[t]?.focus();
   };
 
@@ -54,8 +87,19 @@ export default function App() {
         <span className="mono dim" style={{ fontSize: 11 }}>
           For informational purposes only · Not a recommendation to buy or sell securities
         </span>
+        <UserMenu onLogin={() => setShowAuth(true)} />
       </header>
 
+      {showAuth && !user && (
+        <div className="auth-wrap">
+          <AuthForm onDone={() => setShowAuth(false)} />
+          <button type="button" className="btn btn-ghost" onClick={() => setShowAuth(false)}>
+            Back
+          </button>
+        </div>
+      )}
+
+      <div hidden={showAuth && !user}>
       <div className="tabbar" role="tablist" aria-label="Views" onKeyDown={onTabKey}>
         {TABS.map((t) => (
           <button
@@ -91,9 +135,37 @@ export default function App() {
             {visited.has(t.id) && t.id === 'screener' && <ScreenerPage onOpen={openCompany} />}
             {visited.has(t.id) && t.id === 'heatmap' && <HeatmapPage />}
             {visited.has(t.id) && t.id === 'company' && <CompanyPage symbol={symbol} onSymbol={openCompany} />}
+            {visited.has(t.id) && t.id === 'pinned' && user && (
+              <PinnedPage onOpen={openCompany} refreshKey={pinnedKey} />
+            )}
+            {visited.has(t.id) && t.id === 'history' && user && (
+              <HistoryPage onOpen={openCompany} refreshKey={historyKey} />
+            )}
           </div>
         ))}
       </main>
+      </div>
     </div>
+  );
+}
+
+/** Header area: "LOGIN" when signed out, username + logout when signed in. */
+function UserMenu({ onLogin }: { onLogin: () => void }) {
+  const { user, checking, logout } = useAuth();
+  if (checking) return <span className="mono dim user-menu">…</span>;
+  if (!user) {
+    return (
+      <button type="button" className="btn user-menu" onClick={onLogin}>
+        Login / Register
+      </button>
+    );
+  }
+  return (
+    <span className="mono user-menu">
+      <span aria-label={`Logged in as ${user.username}`}>&gt; {user.username}</span>
+      <button type="button" className="btn btn-ghost" onClick={logout}>
+        Logout
+      </button>
+    </span>
   );
 }

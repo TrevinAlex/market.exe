@@ -1,5 +1,10 @@
 import type {
+  AuthResponse,
   HeatmapResponse,
+  HistoryKind,
+  HistoryResponse,
+  PinsResponse,
+  User,
   Score,
   ScreenResponse,
   SimulateOptions,
@@ -71,12 +76,23 @@ export async function toApiError(res: Response): Promise<ApiError> {
   return new ApiError(detail ?? `Request failed (HTTP ${res.status})`, res.status);
 }
 
+/** Bearer token of the logged-in user (set by AuthProvider). Sent on every
+ *  request so the backend can record history; anonymous when null. */
+let authToken: string | null = null;
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       ...init,
-      headers: { Accept: 'application/json', ...(init.headers ?? {}) },
+      headers: {
+        Accept: 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        ...(init.headers ?? {}),
+      },
     });
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e;
@@ -123,7 +139,54 @@ export const api = {
       { method: 'POST', signal },
     );
   },
+
+  register(username: string, password: string): Promise<AuthResponse> {
+    return request<AuthResponse>('/api/auth/register', jsonPost({ username, password }));
+  },
+
+  login(username: string, password: string): Promise<AuthResponse> {
+    return request<AuthResponse>('/api/auth/login', jsonPost({ username, password }));
+  },
+
+  me(token: string, signal?: AbortSignal): Promise<User> {
+    return request<User>('/api/auth/me', { headers: { Authorization: `Bearer ${token}` }, signal });
+  },
+
+  history(
+    { kind, limit = 50, offset = 0 }: { kind?: HistoryKind; limit?: number; offset?: number } = {},
+    signal?: AbortSignal,
+  ): Promise<HistoryResponse> {
+    const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (kind) qs.set('kind', kind);
+    return request<HistoryResponse>(`/api/history?${qs}`, { signal });
+  },
+
+  deleteHistory(id?: number): Promise<{ deleted: number }> {
+    const path = id == null ? '/api/history' : `/api/history/${encodeURIComponent(String(id))}`;
+    return request<{ deleted: number }>(path, { method: 'DELETE' });
+  },
+
+  pins(withScores = false, signal?: AbortSignal): Promise<PinsResponse> {
+    return request<PinsResponse>(`/api/pins${withScores ? '?scores=true' : ''}`, { signal });
+  },
+
+  pin(symbol: string): Promise<{ symbol: string; pinned: boolean }> {
+    return request(`/api/pins/${encodeURIComponent(assertTicker(symbol))}`, { method: 'PUT' });
+  },
+
+  unpin(symbol: string): Promise<{ symbol: string; pinned: boolean }> {
+    return request(`/api/pins/${encodeURIComponent(assertTicker(symbol))}`, { method: 'DELETE' });
+  },
 };
+
+function jsonPost(body: unknown): RequestInit {
+  return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+}
+
+/** Client-side mirror of the backend rules in app/main.py (UserCredentials). */
+export const USERNAME_RE = /^[A-Za-z0-9_]{3,32}$/;
+export const PASSWORD_MIN = 8;
+export const PASSWORD_MAX = 128;
 
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) return e.message;

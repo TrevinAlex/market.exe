@@ -4,6 +4,7 @@ import type { Regime, Score, SimulationResponse } from '../api/types';
 import { AgentMixBar } from '../components/AgentMixBar';
 import { FanChart } from '../components/FanChart';
 import { HealthBar } from '../components/HealthBar';
+import { PinButton } from '../components/PinButton';
 import { RadarChart } from '../components/RadarChart';
 import { RegimeBadge } from '../components/RegimeBadge';
 import { ErrorAlert, Scanning } from '../components/Status';
@@ -120,6 +121,7 @@ function CompanyOverview({ score }: { score: Score }) {
       <section className="panel stack" aria-label="Health overview">
         <div className="company-head">
           <h2>{baseTicker(score.symbol)}</h2>
+          <PinButton symbol={score.symbol} size="lg" />
           <span>{score.company_name}</span>
           <span className="dim" style={{ fontSize: 12 }}>
             {[score.sector, score.sub_sector].filter(Boolean).join(' / ') || '—'}

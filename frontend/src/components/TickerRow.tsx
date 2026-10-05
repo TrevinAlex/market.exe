@@ -2,6 +2,7 @@ import type { Score } from '../api/types';
 import { baseTicker } from '../api/client';
 import { colorHex } from '../theme/tokens';
 import { HealthBar } from './HealthBar';
+import { PinButton } from './PinButton';
 import { RegimeBadge } from './RegimeBadge';
 import { SubScoreDots } from './SubScoreDots';
 
@@ -27,18 +28,21 @@ export function TickerRow({ rank, score, onOpen }: Props) {
       onClick={open}
     >
       <span className="rank">#{rank}</span>
-      <button
-        type="button"
-        className="sym"
-        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-        onClick={(e) => {
-          e.stopPropagation();
-          open();
-        }}
-        aria-label={`Open ${sym}, ${score.company_name}`}
-      >
-        {sym}
-      </button>
+      <span className="sym-cell">
+        <button
+          type="button"
+          className="sym"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            open();
+          }}
+          aria-label={`Open ${sym}, ${score.company_name}`}
+        >
+          {sym}
+        </button>
+        <PinButton symbol={sym} />
+      </span>
       <span className="name" title={score.company_name}>
         {score.company_name}
         <small>{score.sub_sector ?? score.sector ?? '—'}</small>

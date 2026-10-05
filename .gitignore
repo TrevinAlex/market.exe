@@ -6,6 +6,7 @@
 !**/.env.example
 
 # Python
+*.db
 .venv/
 __pycache__/
 *.pyc

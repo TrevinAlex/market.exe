@@ -73,3 +73,55 @@ export interface SimulateOptions {
   runs?: number;
   days?: number;
 }
+
+// --- user accounts (backend/app/users.py) ---
+export interface User {
+  id: number;
+  username: string;
+  created_at: number; // unix seconds
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: 'bearer';
+  expires_in: number; // seconds
+  user: User;
+}
+
+// --- user history (GET /api/history) ---
+export type HistoryKind = 'company' | 'simulation';
+
+export interface HistoryEntry {
+  id: number;
+  kind: HistoryKind;
+  symbol: string;
+  params: { runs?: number; days?: number };
+  result: {
+    company_name?: string;
+    composite?: number;
+    regime?: Regime;
+    last_close_price?: number | null;
+    current_price?: number;
+    expected_return_pct?: number;
+    prob_price_up?: number;
+    p50?: number;
+  };
+  created_at: string; // ISO-8601
+}
+
+export interface HistoryResponse {
+  total: number;
+  results: HistoryEntry[];
+}
+
+// --- pinned stocks (GET /api/pins) ---
+export interface Pin {
+  symbol: string; // bare ticker, e.g. "BBCA"
+  created_at: string; // ISO-8601
+  score: Score | null; // only with ?scores=true; null if unavailable
+}
+
+export interface PinsResponse {
+  max_pins: number;
+  pins: Pin[];
+}

@@ -31,6 +31,19 @@ class Settings(BaseSettings):
     login_max_failures: int = 5
     login_window_seconds: int = 300
 
+    # --- user accounts ----------------------------------------------------
+    # SQLite file holding registered users (created automatically).
+    users_db_path: str = "users.db"
+
+    # --- user history (Supabase) -----------------------------------------
+    # Project URL, e.g. https://xxxx.supabase.co, and the service_role key
+    # (Settings -> API). Server-side only. Empty = history disabled.
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+    # Max pinned stocks per user. The PINNED view scores each one (4 Sectors
+    # credits per stock, cached for CACHE_TTL_SECONDS), so keep this modest.
+    max_pins: int = 20
+
     @property
     def origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]

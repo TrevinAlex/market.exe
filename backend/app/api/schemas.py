@@ -1,6 +1,8 @@
 """Pydantic response models for the API surface."""
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -70,3 +72,29 @@ class SimulationResponse(BaseModel):
     expected_return_pct: float
     prob_price_up: float
     sample_paths: list[list[float]]
+
+
+class HistoryEntry(BaseModel):
+    id: int
+    kind: str  # "company" | "simulation"
+    symbol: str
+    params: dict[str, Any]
+    result: dict[str, Any]
+    created_at: str  # ISO-8601 timestamp from Postgres
+
+
+class HistoryResponse(BaseModel):
+    total: int
+    results: list[HistoryEntry]
+
+
+
+class PinModel(BaseModel):
+    symbol: str
+    created_at: str  # ISO-8601 timestamp from Postgres
+    score: ScoreModel | None = None  # only with ?scores=true; None if unavailable
+
+
+class PinsResponse(BaseModel):
+    max_pins: int
+    pins: list[PinModel]
