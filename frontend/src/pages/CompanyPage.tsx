@@ -7,6 +7,8 @@ import { HealthBar } from '../components/HealthBar';
 import { RadarChart } from '../components/RadarChart';
 import { RegimeBadge } from '../components/RegimeBadge';
 import { ErrorAlert, Scanning } from '../components/Status';
+import { Tip } from '../components/Tip';
+import { HEALTH_EXPLAINER } from '../components/explainers';
 import { isNoData, normalizedOf } from '../components/subScoreUtils';
 import { useCompany } from '../hooks/useCompany';
 import { useSimulate } from '../hooks/useSimulate';
@@ -130,16 +132,21 @@ function CompanyOverview({ score }: { score: Score }) {
           </span>
         </div>
 
-        <HealthBar
-          score={score.composite}
-          regime={score.regime}
-          color={score.color}
-          confidence={score.confidence}
-          size="lg"
-        />
+        <div>
+          <h3 className="panel-title" style={{ marginBottom: 6 }}>
+            <Tip text={HEALTH_EXPLAINER}>Health score</Tip>
+          </h3>
+          <HealthBar
+            score={score.composite}
+            regime={score.regime}
+            color={score.color}
+            confidence={score.confidence}
+            size="lg"
+          />
+        </div>
 
         <div>
-          <RegimeBadge regime={score.regime} color={score.color} size="lg" />
+          <RegimeBadge regime={score.regime} color={score.color} size="lg" explain />
           <p className="meaning">{REGIME_MEANING[regime] ?? ''}</p>
         </div>
 
@@ -223,19 +230,40 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
   const ret = sim.expected_return_pct;
   const retColor = ret > 0 ? palette.cyan : ret < 0 ? palette.red : palette.text;
   const up = sim.prob_price_up;
+  const days = sim.horizon_days;
 
   return (
     <div className="stack">
       <dl className="stat-grid" style={{ margin: 0 }}>
-        <Stat label="Expected return" value={formatSignedPct(ret)} color={retColor} />
+        <Stat
+          label="Expected return"
+          value={formatSignedPct(ret)}
+          color={retColor}
+          tip={`The average price change across all ${sim.runs} simulated runs after ${days} days. It is a model estimate of the typical outcome, not a guaranteed return.`}
+        />
         <Stat
           label="Probability up"
           value={formatPct01(up)}
           color={up >= 0.5 ? palette.cyan : palette.amber}
+          tip={`The share of simulated runs that ended above today's price after ${days} days. Around 50% means the model sees no clear direction.`}
         />
-        <Stat label="Bearish (p10)" value={formatIdr(sim.bands.p10)} color={palette.red} />
-        <Stat label="Median (p50)" value={formatIdr(sim.bands.p50)} />
-        <Stat label="Bullish (p90)" value={formatIdr(sim.bands.p90)} color={palette.cyan} />
+        <Stat
+          label="Bearish (p10)"
+          value={formatIdr(sim.bands.p10)}
+          color={palette.red}
+          tip={`A plausible downside case. 10% of simulated runs ended at or below this price after ${days} days, and 90% ended above it.`}
+        />
+        <Stat
+          label="Median (p50)"
+          value={formatIdr(sim.bands.p50)}
+          tip={`The middle outcome. Half of the simulated runs ended above this price after ${days} days and half ended below it.`}
+        />
+        <Stat
+          label="Bullish (p90)"
+          value={formatIdr(sim.bands.p90)}
+          color={palette.cyan}
+          tip={`A plausible upside case. Only 10% of simulated runs ended above this price after ${days} days.`}
+        />
       </dl>
 
       <div>
@@ -258,10 +286,20 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
   );
 }
 
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+function Stat({
+  label,
+  value,
+  color,
+  tip,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+  tip?: string;
+}) {
   return (
     <div className="stat" style={color ? { ['--stat' as string]: color } : undefined}>
-      <dt>{label}</dt>
+      <dt>{tip ? <Tip text={tip}>{label}</Tip> : label}</dt>
       <dd>{value}</dd>
     </div>
   );

@@ -43,7 +43,7 @@ export function TickerRow({ rank, score, onOpen }: Props) {
         {score.company_name}
         <small>{score.sub_sector ?? score.sector ?? '—'}</small>
       </span>
-      <RegimeBadge regime={score.regime} color={score.color} />
+      <RegimeBadge regime={score.regime} color={score.color} explain />
       <HealthBar score={score.composite} regime={score.regime} color={score.color} confidence={score.confidence} />
       <SubScoreDots
         subScores={score.sub_scores}

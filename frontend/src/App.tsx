@@ -49,10 +49,10 @@ export default function App() {
       <header className="app-header">
         <h1 className="brand">
           MARKET.EXE
-          <small>IDX HEALTH REGIME SCANNER // v0.1</small>
+          <small>STOCK HEALTH AND PROFITABILITY SIMULATOR</small>
         </h1>
         <span className="mono dim" style={{ fontSize: 11 }}>
-          Scores computed by backend · not investment advice
+          For informational purposes only · Not a recommendation to buy or sell securities
         </span>
       </header>
 

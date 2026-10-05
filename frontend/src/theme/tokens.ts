@@ -43,6 +43,14 @@ export const REGIME_MEANING: Record<Regime, string> = {
   Stress: 'Several red flags across debt, quality and momentum. High risk.',
 };
 
+/** Composite-score band for each regime (mirrors backend scoring thresholds). */
+export const REGIME_RANGE: Record<Regime, string> = {
+  Accumulation: '70–100',
+  Recovery: '50–69.9',
+  Distribution: '30–49.9',
+  Stress: '0–29.9',
+};
+
 /** Regime boundaries drawn as ticks on the HP bar (display only). */
 export const REGIME_TICKS = [30, 50, 70] as const;
 

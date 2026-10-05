@@ -958,3 +958,88 @@ button {
     transition: none;
   }
 }
+
+/* ---- Explanatory tooltips (components/Tip.tsx) ---- */
+.tip-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+/* Plain-text terms get a dotted underline so users know they can hover them. */
+.tip-term {
+  cursor: help;
+  border-bottom: 1px dotted color-mix(in srgb, var(--cyan) 60%, transparent);
+}
+
+.tip-term:focus-visible {
+  outline: 1px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+.tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 50;
+  width: max-content;
+  max-width: 280px;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--cyan);
+  border-radius: 2px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cyan) 25%, transparent);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-transform: none;
+  text-shadow: none;
+  white-space: normal;
+  text-align: left;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+/* Bulleted content inside a pop-up (regime overview). */
+.tip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.tip:has(.tip-list) {
+  max-width: 340px;
+}
+
+/* Pop-ups near the right edge open leftwards so they stay on screen. */
+.tip-wrap.tip-right .tip {
+  left: auto;
+  right: 0;
+}
+
+/* Invisible bridge across the 8px gap so the pointer can move onto the pop-up. */
+.tip::before {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: 0;
+  right: 0;
+  height: 9px;
+}
+
+.tip[data-open] {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tip {
+    transition: none;
+  }
+}

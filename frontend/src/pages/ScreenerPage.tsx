@@ -2,11 +2,15 @@ import { useId, useMemo, useState } from 'react';
 import type { Regime } from '../api/types';
 import { ErrorAlert, Scanning } from '../components/Status';
 import { TickerRow } from '../components/TickerRow';
+import { Tip } from '../components/Tip';
+import { AllRegimesTipText, HEALTH_EXPLAINER, RegimeTipText } from '../components/explainers';
 import { useScreen } from '../hooks/useScreen';
 import { REGIMES, REGIME_COLOR_KEY, colorHex } from '../theme/tokens';
 
 const INDEX = 'LQ45';
-const LIMIT = 20;
+// LQ45 has 45 members. 50 leaves headroom so a rebalance never truncates the
+// list, and it's still a single Sectors screener request.
+const LIMIT = 50;
 
 export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
   const { data, error, loading, reload } = useScreen(INDEX, LIMIT);
@@ -46,22 +50,30 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
     <div className="stack">
       <section className="panel" aria-label="Filters">
         <h2 className="panel-title">
-          Screener // {INDEX} · {LIMIT} stocks · ranked by health score
+          Screener // {INDEX} ·{' '}
+          <Tip text="Stocks are sorted by their composite health score from 0 to 100. It is the sum of five sub-scores (valuation, momentum, debt, quality and profitability), each worth up to 20 points. Higher means stronger fundamentals.">
+            ranked by health score
+          </Tip>
         </h2>
         <div className="toolbar">
           <div className="field" role="group" aria-label="Filter by regime">
-            <span>REGIME</span>
+            <Tip text={<AllRegimesTipText />}>REGIME</Tip>
             {REGIMES.map((r) => (
-              <button
+              <Tip
                 key={r}
-                type="button"
-                className="chip"
-                aria-pressed={regimes.has(r)}
-                style={{ ['--chip-color' as string]: colorHex(REGIME_COLOR_KEY[r]) }}
-                onClick={() => toggleRegime(r)}
+                interactive
+                text={<RegimeTipText regime={r} hint="Click to filter the list." />}
               >
-                {r}
-              </button>
+                <button
+                  type="button"
+                  className="chip"
+                  aria-pressed={regimes.has(r)}
+                  style={{ ['--chip-color' as string]: colorHex(REGIME_COLOR_KEY[r]) }}
+                  onClick={() => toggleRegime(r)}
+                >
+                  {r}
+                </button>
+              </Tip>
             ))}
           </div>
 
@@ -125,15 +137,22 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
       {data && !loading && (
         <section aria-label="Ranked stocks">
           <p className="dim mono" style={{ fontSize: 11, margin: '0 0 6px' }} aria-live="polite">
-            {rows.length} of {data.count} stocks shown
+            {filtersActive
+              ? `Showing ${rows.length} of ${data.count} stocks`
+              : `Showing ${data.count} stocks`}
           </p>
-          <div className="list-header" aria-hidden="true">
-            <span>#</span>
-            <span>TICKER</span>
-            <span>COMPANY</span>
-            <span>REGIME</span>
-            <span>HEALTH</span>
-            <span>VAL · MOM · DEBT · QUAL · PROF</span>
+          {/* Visual column header; only the two explained labels are exposed to assistive tech. */}
+          <div className="list-header">
+            <span aria-hidden="true">#</span>
+            <span aria-hidden="true">TICKER</span>
+            <span aria-hidden="true">COMPANY</span>
+            <span>
+              <Tip text={<AllRegimesTipText />}>REGIME</Tip>
+            </span>
+            <span>
+              <Tip text={HEALTH_EXPLAINER}>HEALTH</Tip>
+            </span>
+            <span aria-hidden="true">VAL · MOM · DEBT · QUAL · PROF</span>
           </div>
           {rows.length === 0 ? (
             <p className="empty">&gt; NO MATCHES. Loosen the filters.</p>

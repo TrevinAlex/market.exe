@@ -1,5 +1,7 @@
 import { SECTOR_STRESS_PCT, SectorHeatmap } from '../components/SectorHeatmap';
 import { ErrorAlert, Scanning } from '../components/Status';
+import { Tip } from '../components/Tip';
+import { RegimeTipText } from '../components/explainers';
 import { useHeatmap } from '../hooks/useHeatmap';
 import { REGIMES, REGIME_COLOR_KEY, colorHex } from '../theme/tokens';
 
@@ -19,7 +21,12 @@ export function HeatmapPage() {
         <>
           <section className="panel">
             <h2 className="headline">
-              <b>{stressed}</b> of {sectors.length} sectors under stress
+              <b>{stressed}</b> of {sectors.length} sectors{' '}
+              <Tip
+                text={`A sector is under stress when at least ${SECTOR_STRESS_PCT}% of its stocks are in the Stress or Distribution regime, meaning their health score is below 50. It signals broad weakness across the sector, not just one company.`}
+              >
+                under stress
+              </Tip>
             </h2>
             <p className="note">
               {INDEX} · a sector is "under stress" when ≥{SECTOR_STRESS_PCT}% of its stocks are in Stress or
@@ -29,7 +36,7 @@ export function HeatmapPage() {
               {REGIMES.map((r) => (
                 <li key={r}>
                   <i style={{ background: colorHex(REGIME_COLOR_KEY[r]) }} aria-hidden="true" />
-                  {r}
+                  <Tip text={<RegimeTipText regime={r} />}>{r}</Tip>
                 </li>
               ))}
             </ul>
