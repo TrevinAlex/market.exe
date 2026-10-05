@@ -61,7 +61,7 @@ from app.auth import (
 )
 from app.config import settings
 from app.core.scoring import flatten_report, score_company
-from app.core.simulation import run_simulation
+from app.core.simulation import predict_daily_vol, run_simulation, upcoming_dividends
 from app.security import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -369,12 +369,30 @@ async def simulate(
     if not report:
         raise HTTPException(status_code=404, detail=f"Company '{symbol}' not found on IDX.")
 
-    result = score_company(flatten_report(report))
+    flat = flatten_report(report)
+    result = score_company(flat)
+
+    # Extra inputs for the simulation (1 credit each, cached). Either may fail
+    # without breaking the simulation: it falls back to the 52-week range vol
+    # and no dividend events.
+    closes_res, actions_res = await asyncio.gather(
+        sectors_client.daily_closes(symbol),
+        sectors_client.corporate_actions(symbol),
+        return_exceptions=True,
+    )
+    closes = closes_res if isinstance(closes_res, list) else None
+    actions = actions_res if isinstance(actions_res, dict) else None
+    daily_vol, vol_method = predict_daily_vol(
+        closes, flat.get("52_w_high_price"), flat.get("52_w_low_price")
+    )
     sim = run_simulation(
         current_price=result.last_close_price or 0.0,
         sub_scores_norm=result.sub_scores.normalized(),
         runs=runs,
         days=days,
+        daily_vol=daily_vol,
+        vol_method=vol_method,
+        dividends=upcoming_dividends(actions, days),
     )
     if user:
         background.add_task(

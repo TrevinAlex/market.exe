@@ -61,12 +61,22 @@ class BandsModel(BaseModel):
     p90: float
 
 
+class SimEvent(BaseModel):
+    day: int  # trading day inside the horizon (1 = next trading day)
+    type: str  # "dividend"
+    amount: float  # IDR per share
+
+
 class SimulationResponse(BaseModel):
     symbol: str
     current_price: float
     horizon_days: int
     runs: int
     agents: int
+    daily_vol: float  # market-noise volatility used, per trading day (0.02 = 2%)
+    vol_method: str  # "ml" (90-day volatility model), "range" (52-week range) or "default"
+    drift_scale: float  # share of the agent mix's directional bias kept (0 = none)
+    events: list[SimEvent] = []  # known events inside the horizon (e.g. ex-dividend dates)
     agent_mix: AgentMixModel
     bands: BandsModel
     expected_return_pct: float

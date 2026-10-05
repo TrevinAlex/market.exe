@@ -82,6 +82,19 @@ async def _fake_report(symbol):
 
 
 main.sectors_client.company_report = _fake_report
+
+
+async def _no_closes(symbol):
+    return []
+
+
+async def _no_actions(symbol):
+    return {}
+
+
+# /api/simulate also fetches daily closes + corporate actions; never hit the real API.
+main.sectors_client.daily_closes = _no_closes
+main.sectors_client.corporate_actions = _no_actions
 main.flatten_report = lambda r: r
 
 c = TestClient(main.app)

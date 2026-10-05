@@ -5,13 +5,15 @@ import { CompanyPage } from './pages/CompanyPage';
 import { HeatmapPage } from './pages/HeatmapPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { PinnedPage } from './pages/PinnedPage';
+import { ReportCardPage } from './pages/ReportCardPage';
 import { ScreenerPage } from './pages/ScreenerPage';
 
-type Tab = 'screener' | 'heatmap' | 'company' | 'pinned' | 'history';
+type Tab = 'screener' | 'heatmap' | 'company' | 'report' | 'pinned' | 'history';
 const BASE_TABS: { id: Tab; label: string }[] = [
   { id: 'screener', label: 'SCREENER' },
   { id: 'heatmap', label: 'HEATMAP' },
   { id: 'company', label: 'COMPANY' },
+  { id: 'report', label: 'REPORT CARD' },
 ];
 // Only shown to logged-in users.
 const USER_TABS: { id: Tab; label: string }[] = [
@@ -35,6 +37,7 @@ export default function App() {
     screener: null,
     heatmap: null,
     company: null,
+    report: null,
     pinned: null,
     history: null,
   });
@@ -135,6 +138,7 @@ export default function App() {
             {visited.has(t.id) && t.id === 'screener' && <ScreenerPage onOpen={openCompany} />}
             {visited.has(t.id) && t.id === 'heatmap' && <HeatmapPage />}
             {visited.has(t.id) && t.id === 'company' && <CompanyPage symbol={symbol} onSymbol={openCompany} />}
+            {visited.has(t.id) && t.id === 'report' && <ReportCardPage />}
             {visited.has(t.id) && t.id === 'pinned' && user && (
               <PinnedPage onOpen={openCompany} refreshKey={pinnedKey} />
             )}

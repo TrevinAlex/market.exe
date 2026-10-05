@@ -1174,3 +1174,132 @@ button {
 .pin-missing {
   cursor: default;
 }
+
+/* ---------- report card ---------- */
+
+.rc-headline { font-size: 16px; letter-spacing: 0.04em; }
+.rc-headline .rc-score { color: var(--cyan); text-shadow: var(--glow-cyan); }
+
+.rc-table-wrap { overflow-x: auto; }
+.rc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rc-table th,
+.rc-table td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.rc-table thead th {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--dim); border-bottom: 1px solid var(--border-hi); white-space: nowrap;
+}
+.rc-table tbody th { font-weight: 600; min-width: 180px; }
+.rc-num { white-space: nowrap; }
+.rc-meaning { color: var(--dim); min-width: 280px; line-height: 1.5; }
+
+.rc-grade {
+  display: inline-block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  padding: 2px 6px; border: 1px solid currentColor; white-space: nowrap;
+}
+.rc-pass { color: var(--cyan); box-shadow: 0 0 6px rgba(0, 245, 255, 0.35); }
+.rc-warn { color: var(--amber); }
+.rc-fail { color: var(--red); }
+
+.rc-bottomline { border-left: 2px solid var(--cyan); padding: 4px 0 4px 12px; }
+.rc-bottomline p { margin: 0; line-height: 1.5; }
+.rc-caveats { margin: 0; padding-left: 18px; line-height: 1.6; }
+
+.rc-glossary-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rc-glossary-head .headline { margin-right: auto; }
+.rc-group { margin: 6px 0 0; color: var(--cyan); }
+
+.rc-terms {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; margin: 0;
+}
+.rc-term { background: var(--panel-2); border: 1px solid var(--border); padding: 10px 12px; }
+.rc-term dt { font-family: var(--font-mono); font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.rc-term dt .dim { font-weight: 400; font-size: 11px; }
+.rc-term dd { margin: 0; font-size: 13px; line-height: 1.5; }
+.rc-term dd p { margin: 0 0 6px; }
+.rc-term dd p:last-child { margin-bottom: 0; }
+.rc-tag {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; padding: 1px 5px;
+  border: 1px solid currentColor; margin-right: 4px; vertical-align: 1px;
+}
+.rc-good { color: var(--text); }
+.rc-good .rc-tag { color: var(--cyan); }
+.rc-bad .rc-tag { color: var(--red); }
+
+
+/* ==========================================================================
+   TONE + RETRO LAYER
+   Softer glow (strong glow only where it carries meaning: HP bars, regime
+   badges, the brand) plus a few CRT/terminal touches. Everything here
+   overrides rules above, so deleting this block restores the old look.
+   ========================================================================== */
+
+:root {
+  --glow-cyan: 0 0 4px rgba(0, 245, 255, 0.3);
+  --scanlines: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.018) 0px,
+    rgba(255, 255, 255, 0.018) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* --- glow: off for body text, numbers, tables and controls --- */
+.tab[aria-selected='true'],
+.hp-value b,
+.dots-row,
+.stat dd,
+.pin-btn[aria-pressed='true'],
+.rc-headline .rc-score {
+  text-shadow: none;
+}
+.minibar > span,
+.rc-pass,
+.btn-primary,
+.alert {
+  box-shadow: none;
+}
+.btn:hover:not(:disabled) { box-shadow: 0 0 4px rgba(0, 245, 255, 0.25); }
+.chip[aria-pressed='true'] { box-shadow: none; }
+.tooltip,
+.tip { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+
+/* --- glow: kept, but softer --- */
+.brand { text-shadow: 0 0 4px rgba(0, 245, 255, 0.4); }
+.headline b { text-shadow: 0 0 4px rgba(255, 45, 85, 0.4); }
+.regime-badge { text-shadow: 0 0 3px color-mix(in srgb, var(--regime) 40%, transparent); }
+.hp-fill { box-shadow: 0 0 5px color-mix(in srgb, var(--regime) 60%, transparent); }
+.heat-big { text-shadow: 0 0 4px color-mix(in srgb, var(--heat) 40%, transparent); }
+.heat-tile { box-shadow: inset 0 0 14px color-mix(in srgb, var(--heat) 10%, transparent); }
+@keyframes critical {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--red); }
+  50% { opacity: 0.5; box-shadow: none; }
+}
+
+/* --- retro: segmented HP bar (game-style blocks instead of a smooth fill) --- */
+.hp-fill::before {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 8px, var(--bg) 8px 10px),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0 1px, transparent 1px 3px);
+}
+.hp.lg .hp-fill::before {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 14px, var(--bg) 14px 17px),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0 1px, transparent 1px 3px);
+}
+.hp-fill::after { opacity: 0.5; } /* gentler sweeping highlight */
+
+/* --- retro: faint CRT scanlines on panels and a soft vignette on the page --- */
+.panel { background-image: var(--scanlines); }
+body {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(0, 245, 255, 0.035), transparent 60%),
+    radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.45) 100%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* --- retro: terminal-style labels --- */
+.tab[aria-selected='true']::before { content: '> '; color: var(--cyan); }
+.panel-title::before { content: '// '; opacity: 0.6; }
+.rc-group::before { content: '> '; opacity: 1; }

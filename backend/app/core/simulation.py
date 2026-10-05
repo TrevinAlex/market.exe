@@ -16,6 +16,7 @@ calls no API at all).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import numpy as np
@@ -68,6 +69,136 @@ def calibrate_agents(sub_scores_norm: dict[str, float]) -> AgentMix:
     return AgentMix(*[float(x) for x in full])
 
 
+# Market noise used when a stock's own volatility is unknown. 0.8%/day is a
+# calm large-cap; backtests showed it is too narrow for most names, so callers
+# should pass daily_vol (predict_daily_vol) whenever they can.
+DEFAULT_DAILY_VOL = 0.008
+MIN_DAILY_VOL = 0.005
+MAX_DAILY_VOL = 0.08
+
+# Expected high/low range of a random walk over T days is sqrt(8T/pi) * sigma
+# (log terms), so sigma ~= ln(high/low) / sqrt(8T/pi). T = 252 trading days.
+_RANGE_TO_SIGMA = float(np.sqrt(8 * 252 / np.pi))
+
+
+def estimate_daily_vol(high_52w: float | None, low_52w: float | None) -> float | None:
+    """Daily volatility estimated from the 52-week high/low.
+
+    Uses only fields the company report already has, so it costs no extra API
+    credits. Returns None when the range is missing or invalid; the result is
+    clamped to a sane band so one bad data point can't blow up the simulation.
+    """
+    try:
+        hi, lo = float(high_52w), float(low_52w)
+    except (TypeError, ValueError):
+        return None
+    if not (hi > lo > 0):
+        return None
+    sigma = float(np.log(hi / lo)) / _RANGE_TO_SIGMA
+    return min(MAX_DAILY_VOL, max(MIN_DAILY_VOL, sigma))
+
+
+# ---------------------------------------------------------------------------
+# Volatility model fitted by walk-forward backtest (45 LQ45 stocks, 2017-2026,
+# Yahoo Finance history). Predicts log(daily vol over the next 30 trading days)
+# from the 52-week range estimate and recent realised volatility. Out of
+# sample it put 80.3% of real outcomes inside the 80% band, vs 76.5% for the
+# range estimate alone. Inputs need ~60 trading days of closes (the Sectors
+# daily endpoint returns 90 calendar days for 1 credit).
+# ---------------------------------------------------------------------------
+_VOL_MODEL = {
+    "intercept": -1.2238,
+    "lv_range": 0.1838,   # log 52-week-range vol estimate
+    "lv5": 0.0608,        # log vol of the last 5 daily returns
+    "lv20": 0.2776,       # last 20
+    "lv60": 0.1206,       # last 60 (or all available)
+    "labs_r20": 0.0368,   # log(|20-day return| + 0.01)
+}
+MIN_CLOSES_FOR_MODEL = 22  # need 21 returns for the 20-day features
+
+
+def predict_daily_vol(
+    closes: list[float] | None,
+    high_52w: float | None,
+    low_52w: float | None,
+) -> tuple[float | None, str]:
+    """Best available daily-volatility forecast and the method used.
+
+    Returns (vol, "ml") when enough daily closes are given (oldest first),
+    else (range estimate, "range"), else (None, "default").
+    """
+    v_range = estimate_daily_vol(high_52w, low_52w)
+    px = np.array([c for c in (closes or []) if c and c > 0], dtype=float)
+    if len(px) >= MIN_CLOSES_FOR_MODEL:
+        r = np.diff(np.log(px))[-60:]
+        v5, v20, v60 = (float(np.std(r[-n:])) for n in (5, 20, 60))
+        if min(v5, v20, v60) > 0:
+            vr = v_range if v_range is not None else v60
+            m = _VOL_MODEL
+            log_vol = (m["intercept"] + m["lv_range"] * np.log(vr) + m["lv5"] * np.log(v5)
+                       + m["lv20"] * np.log(v20) + m["lv60"] * np.log(v60)
+                       + m["labs_r20"] * np.log(abs(np.log(px[-1] / px[-21])) + 0.01))
+            return min(MAX_DAILY_VOL, max(MIN_DAILY_VOL, float(np.exp(log_vol)))), "ml"
+    if v_range is not None:
+        return v_range, "range"
+    return None, "default"
+
+
+# Mean daily price impact of each agent type (midpoints of the uniform draws
+# in run_simulation). Used to know how much drift the agent mix implies.
+_AGENT_MEAN_IMPACT = (-0.003, 0.0025, 0.00175, -0.00125)
+
+# How much of the agents' implied drift to keep. The walk-forward backtest fit
+# this factor at 0.0 in every year 2019-2026: the agent drift did not predict
+# real 30-day returns and made the forecast slightly worse. The agents still
+# trade (their randomness shapes each path); only their net bias is removed.
+DEFAULT_DRIFT_SCALE = 0.0
+
+
+def agent_expected_drift(mix: AgentMix) -> float:
+    """Expected daily return the agent mix pushes the price by."""
+    fr = (mix.panic_sellers, mix.momentum_buyers, mix.value_buyers, mix.profit_takers)
+    return float(sum(f * i for f, i in zip(fr, _AGENT_MEAN_IMPACT)))
+
+
+def upcoming_dividends(
+    corporate_actions: dict[str, Any] | None,
+    horizon_days: int,
+    today: date | None = None,
+) -> list[tuple[int, float]]:
+    """(trading_day, amount) for dividends whose ex-date falls inside the horizon.
+
+    Reads Sectors corporate actions: both ``upcoming_dividend`` and future
+    entries of ``dividend``. Trading days are counted as weekdays after today
+    (IDX holidays ignored, so a date may land a day or two early).
+    """
+    ca = corporate_actions or {}
+    today = today or date.today()
+    items: list[dict[str, Any]] = []
+    for key in ("upcoming_dividend", "dividend"):
+        v = ca.get(key)
+        if isinstance(v, dict):
+            items.append(v)
+        elif isinstance(v, list):
+            items.extend(x for x in v if isinstance(x, dict))
+    out: dict[str, float] = {}
+    for it in items:
+        ex, amt = it.get("ex_date"), it.get("dividend_amount") or it.get("amount")
+        try:
+            ex_d = date.fromisoformat(str(ex)[:10])
+            amount = float(amt)
+        except (TypeError, ValueError):
+            continue
+        if ex_d > today and amount > 0:
+            out[ex_d.isoformat()] = amount          # de-duplicate across both keys
+    events = []
+    for ex, amount in out.items():
+        day = int(np.busday_count(today, date.fromisoformat(ex))) + 1
+        if 1 <= day <= horizon_days:
+            events.append((day, amount))
+    return sorted(events)
+
+
 def run_simulation(
     current_price: float,
     sub_scores_norm: dict[str, float],
@@ -75,13 +206,30 @@ def run_simulation(
     days: int = 30,
     agents: int = 1000,
     seed: int | None = None,
+    daily_vol: float | None = None,
+    drift_scale: float = DEFAULT_DRIFT_SCALE,
+    dividends: list[tuple[int, float]] | None = None,
+    vol_method: str | None = None,
 ) -> dict[str, Any]:
-    """Return percentile bands + a sample of paths for charting."""
+    """Return percentile bands + a sample of paths for charting.
+
+    ``daily_vol``   market-noise volatility per trading day (predict_daily_vol);
+                    None falls back to DEFAULT_DAILY_VOL.
+    ``drift_scale`` share of the agent mix's net drift to keep (0 = none).
+    ``dividends``   known (trading_day, amount_per_share) payouts inside the
+                    horizon; the price drops by the amount on that ex-date.
+    """
     if current_price is None or current_price <= 0:
         current_price = 1000.0  # safe fallback so the sim always returns
+    vol = DEFAULT_DAILY_VOL if daily_vol is None or daily_vol <= 0 else float(daily_vol)
+    divs = {}
+    for day, amount in dividends or []:
+        if 1 <= int(day) <= days and amount and amount > 0:
+            divs[int(day)] = divs.get(int(day), 0.0) + float(amount)
 
     rng = np.random.default_rng(seed)
     mix = calibrate_agents(sub_scores_norm)
+    drift_bias = agent_expected_drift(mix) * (1.0 - float(drift_scale))
 
     # Per-agent-type daily price impact magnitudes (fraction of price).
     # Buyers push up, sellers push down.
@@ -115,8 +263,11 @@ def run_simulation(
         # passive holders contribute nothing
 
         net = pressure.mean(axis=1)                       # avg pressure per run
-        noise = rng.normal(0, 0.008, size=runs)           # exogenous market noise
+        net = net - drift_bias                            # keep only drift_scale of the agents' bias
+        noise = rng.normal(0, vol, size=runs)             # exogenous market noise
         paths[:, d] = paths[:, d - 1] * (1 + net + noise)
+        if d in divs:                                     # ex-dividend: price drops by the payout
+            paths[:, d] = np.maximum(paths[:, d] - divs[d], paths[:, d] * 0.01)
 
     finals = paths[:, -1]
     start = current_price
@@ -136,6 +287,10 @@ def run_simulation(
         "horizon_days": days,
         "runs": runs,
         "agents": agents,
+        "daily_vol": round(vol, 5),
+        "vol_method": vol_method or ("default" if daily_vol is None else "given"),
+        "drift_scale": float(drift_scale),
+        "events": [{"day": d, "type": "dividend", "amount": round(a, 2)} for d, a in sorted(divs.items())],
         "agent_mix": mix.as_dict(),
         "bands": bands,
         "expected_return_pct": round((bands["p50"] / start - 1) * 100, 2),

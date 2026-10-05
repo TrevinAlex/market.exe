@@ -47,7 +47,10 @@ export function CompanyPage({ symbol, onSymbol }: Props) {
               <button type="button" className="btn btn-primary" onClick={sim.run} disabled={sim.loading}>
                 [ {sim.data ? 'RE-RUN' : 'RUN'} SIMULATION ]
               </button>
-              <p className="note">Agent behavior is calibrated from this stock's health score.</p>
+              <p className="note">
+                Range width comes from this stock's own volatility; known dividends are included. Agents add trading
+                randomness, not direction.
+              </p>
             </div>
             {sim.loading && <Scanning label="SIMULATING 500 RUNS × 1000 AGENTS..." />}
             {sim.error != null && !sim.loading && <ErrorAlert error={sim.error} onRetry={sim.run} />}
@@ -241,13 +244,13 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
           label="Expected return"
           value={formatSignedPct(ret)}
           color={retColor}
-          tip={`The average price change across all ${sim.runs} simulated runs after ${days} days. It is a model estimate of the typical outcome, not a guaranteed return.`}
+          tip={`The change from today's price to the median (P50) outcome of ${sim.runs} simulated runs after ${days} days. It sits near 0% by design: the model doesn't claim a direction. See REPORT CARD.`}
         />
         <Stat
           label="Probability up"
           value={formatPct01(up)}
           color={up >= 0.5 ? palette.cyan : palette.amber}
-          tip={`The share of simulated runs that ended above today's price after ${days} days. Around 50% means the model sees no clear direction.`}
+          tip={`The share of simulated runs that ended above today's price after ${days} days. Around 50% is expected: backtests showed 30-day direction is a coin flip, so the model doesn't claim one. Below 50% usually means a dividend is due. See REPORT CARD.`}
         />
         <Stat
           label="Bearish (p10)"

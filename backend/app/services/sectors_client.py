@@ -18,6 +18,7 @@ do not burn the hackathon credit grant.
 from __future__ import annotations
 
 import time
+from datetime import date, timedelta
 from typing import Any
 
 import httpx
@@ -102,6 +103,27 @@ class SectorsClient:
         if isinstance(data, dict) and data.get("error"):
             return None
         return data
+
+    async def daily_closes(self, symbol: str) -> list[float]:
+        """Last 90 calendar days (~60 trading days) of closes, oldest first.
+
+        1 credit (cached). Feeds the volatility model in the simulation.
+        """
+        sym = self._normalize_symbol(symbol)
+        end = date.today()
+        params = {"start": (end - timedelta(days=90)).isoformat(), "end": end.isoformat()}
+        data = await self._get(f"/daily/{sym}/", params)
+        rows = data if isinstance(data, list) else []
+        rows = sorted((r for r in rows if isinstance(r, dict) and r.get("close")), key=lambda r: r.get("date", ""))
+        return [float(r["close"]) for r in rows]
+
+    async def corporate_actions(self, symbol: str) -> dict[str, Any]:
+        """Dividends, AGMs, splits, rights issues... for one company. 1 credit (cached)."""
+        sym = self._normalize_symbol(symbol)
+        data = await self._get(f"/company/corporate-actions/{sym}/", {})
+        if isinstance(data, dict):
+            return data.get("corporate_actions") or {}
+        return {}
 
     async def screen(
         self,
