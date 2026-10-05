@@ -7,6 +7,10 @@ GET  /api/screen                  score & rank companies (optionally filtered)
 GET  /api/company/{symbol}        score a single company
 GET  /api/heatmap                 sector-level regime distribution
 POST /api/simulate/{symbol}       run the ABM Monte Carlo for one stock
+POST /api/admin/login             exchange APP_PASSWORD for an admin bearer token
+
+Data routes are public. Admin/edit routes use ``dependencies=admin_only`` and
+require ``Authorization: Bearer <token>`` (see app/auth.py).
 
 The scoring + simulation logic lives in app/core; this module only wires HTTP
 to it and handles API errors from the upstream Sectors API.
@@ -18,10 +22,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from app.api.schemas import (
     HeatmapResponse,
@@ -29,6 +34,14 @@ from app.api.schemas import (
     ScreenResponse,
     SectorRegimeModel,
     SimulationResponse,
+)
+from app.auth import (
+    check_password,
+    clear_failures,
+    guard_login_attempt,
+    issue_token,
+    record_failure,
+    require_admin,
 )
 from app.config import settings
 from app.core.scoring import flatten_report, score_company
@@ -99,6 +112,7 @@ async def root() -> dict:
         "service": "MARKET.EXE",
         "description": "IDX stock health regime scanner + agent-based scenario simulator.",
         "docs": "/docs",
+        "admin": "POST /api/admin/login {\"password\": ...} -> token for admin-only routes",
         "endpoints": {
             "liveness": "GET /health",
             "screen": "GET /api/screen?index=LQ45&limit=10",
@@ -112,6 +126,38 @@ async def root() -> dict:
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "market.exe"}
+
+
+class LoginRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
+@app.post("/api/admin/login", response_model=LoginResponse)
+async def admin_login(body: LoginRequest, request: Request) -> LoginResponse:
+    """Exchange the admin password (APP_PASSWORD) for a bearer token.
+
+    Only admin routes need this token; all data routes are public.
+    """
+    if not settings.app_password:
+        raise HTTPException(status_code=503, detail="Admin login is not configured.")
+    ip = guard_login_attempt(request)
+    if not check_password(body.password):
+        record_failure(ip)
+        raise HTTPException(status_code=401, detail="Wrong password.")
+    clear_failures(ip)
+    token, ttl = issue_token()
+    return LoginResponse(access_token=token, expires_in=ttl)
+
+
+# Attach to any future admin/edit route: @app.post(..., dependencies=admin_only)
+# Data routes below are public -- anyone can view without logging in.
+admin_only = [Depends(require_admin)]
 
 
 async def _safe_screen(base_where: str | None, limit: int, offset: int):

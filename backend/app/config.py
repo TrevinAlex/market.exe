@@ -19,6 +19,18 @@ class Settings(BaseSettings):
     # Debug mode echoes upstream error details; keep False for demos.
     debug: bool = False
 
+    # --- admin authentication ---------------------------------------------
+    # Viewing is public. Admin/edit routes need a bearer token obtained by
+    # POSTing APP_PASSWORD to /api/admin/login. Empty = admin login disabled.
+    app_password: str = ""
+    # Signs tokens. Leave empty to use a random per-process secret (tokens are
+    # then invalidated on every restart). Set it to keep logins across restarts.
+    auth_secret: str = ""
+    auth_token_ttl_seconds: int = 43200  # 12 hours
+    # Brute-force guard: this many failed logins per IP per window -> 429.
+    login_max_failures: int = 5
+    login_window_seconds: int = 300
+
     @property
     def origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
