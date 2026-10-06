@@ -13,13 +13,14 @@ const BASE_TABS: { id: Tab; label: string }[] = [
   { id: 'screener', label: 'SCREENER' },
   { id: 'heatmap', label: 'HEATMAP' },
   { id: 'company', label: 'COMPANY' },
-  { id: 'report', label: 'REPORT CARD' },
 ];
 // Only shown to logged-in users.
 const USER_TABS: { id: Tab; label: string }[] = [
   { id: 'pinned', label: '★ PINNED' },
   { id: 'history', label: 'HISTORY' },
 ];
+// Always last, pushed to the right end of the tab row (see .tab-right).
+const REPORT_TAB: { id: Tab; label: string } = { id: 'report', label: 'REPORT CARD' };
 const USER_ONLY = new Set<Tab>(USER_TABS.map((t) => t.id));
 
 export default function App() {
@@ -32,7 +33,7 @@ export default function App() {
   const [historyKey, setHistoryKey] = useState(0);
   const [pinnedKey, setPinnedKey] = useState(0);
   const { user } = useAuth();
-  const TABS = user ? [...BASE_TABS, ...USER_TABS] : BASE_TABS;
+  const TABS = user ? [...BASE_TABS, ...USER_TABS, REPORT_TAB] : [...BASE_TABS, REPORT_TAB];
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({
     screener: null,
     heatmap: null,
@@ -116,7 +117,7 @@ export default function App() {
             aria-selected={tab === t.id}
             aria-controls={`panel-${t.id}`}
             tabIndex={tab === t.id ? 0 : -1}
-            className="tab"
+            className={t.id === 'report' ? 'tab tab-right' : 'tab'}
             onClick={() => select(t.id)}
           >
             {t.label}

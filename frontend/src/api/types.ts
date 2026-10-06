@@ -19,6 +19,8 @@ export interface Score {
   sub_scores_normalized: Record<string, number>; // same keys, 0–1
   confidence: number; // 0–1
   last_close_price: number | null; // IDR
+  /** Raw input + scoring rule per sub-score ("Why this score"). Missing on older responses. */
+  breakdown?: Partial<Record<SubScoreKey, { input: string | null; rule: string }>> | null;
 }
 
 export interface ScreenResponse {
@@ -56,14 +58,24 @@ export interface Bands {
   p90: number;
 }
 
+export interface SimEvent {
+  day: number; // trading day inside the horizon (1 = next trading day)
+  type: string; // "dividend"
+  amount: number; // IDR per share
+}
+
 export interface SimulationResponse {
   symbol: string;
   current_price: number;
   horizon_days: number;
   runs: number;
   agents: number;
+  daily_vol?: number; // per trading day, 0.02 = 2%
+  vol_method?: string; // "ml" | "range" | "default"
+  events?: SimEvent[];
   agent_mix: AgentMix; // fractions summing to 1
   bands: Bands; // final-day prices
+  daily_bands?: Record<keyof Bands, number[]> | null; // per day 0..horizon
   expected_return_pct: number;
   prob_price_up: number; // 0–1
   sample_paths: number[][]; // each length days + 1

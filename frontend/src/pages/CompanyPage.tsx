@@ -14,6 +14,7 @@ import { isNoData, normalizedOf } from '../components/subScoreUtils';
 import { useCompany } from '../hooks/useCompany';
 import { useSimulate } from '../hooks/useSimulate';
 import { formatIdr, formatPct01, formatSignedPct } from '../theme/format';
+import { LOT_SIZE, formatIdrCompact, parseRupiah, positionRisk } from '../components/positionRisk';
 import {
   REGIME_MEANING,
   SUB_SCORE_KEYS,
@@ -156,12 +157,16 @@ function CompanyOverview({ score }: { score: Score }) {
         </div>
 
         <table className="subscore-table">
-          <caption className="sr-only">Sub-scores, each out of 20</caption>
+          <caption className="sr-only">Sub-scores, each out of 20, with the input behind each one</caption>
           <thead>
             <tr>
               <th scope="col">Dimension</th>
-              <th scope="col">Measures</th>
-              <th scope="col" style={{ width: '28%' }}>
+              <th scope="col">
+                <Tip text="The company's actual number behind each sub-score, and the rule that turns it into 0-20 points. Hover a dimension name to see what it measures.">
+                  Why this score
+                </Tip>
+              </th>
+              <th scope="col" style={{ width: '22%' }}>
                 <span className="sr-only">Bar</span>
               </th>
               <th scope="col" className="num">
@@ -174,10 +179,11 @@ function CompanyOverview({ score }: { score: Score }) {
               const v = score.sub_scores[k];
               const n = normalizedOf(k, score.sub_scores, score.sub_scores_normalized);
               const na = isNoData(k, v, score.confidence);
+              const why = score.breakdown?.[k];
               return (
                 <tr key={k}>
                   <th scope="row" style={{ color: na ? palette.grey : palette.text }}>
-                    {SUB_SCORE_META[k].label}
+                    <Tip text={SUB_SCORE_META[k].measures}>{SUB_SCORE_META[k].label}</Tip>
                     {k === 'debt' && bank && (
                       <span
                         className="info-icon"
@@ -190,8 +196,19 @@ function CompanyOverview({ score }: { score: Score }) {
                       </span>
                     )}
                   </th>
-                  <td className="dim" style={{ fontFamily: 'var(--font-sans)' }}>
-                    {SUB_SCORE_META[k].measures}
+                  <td>
+                    {why ? (
+                      <>
+                        <div className="why-input" style={{ color: why.input ? palette.text : palette.grey }}>
+                          {why.input ?? 'No data · scored neutral 10 / 20'}
+                        </div>
+                        <div className="why-rule">{why.rule}</div>
+                      </>
+                    ) : (
+                      <span className="dim" style={{ fontFamily: 'var(--font-sans)' }}>
+                        {SUB_SCORE_META[k].measures}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div className={`minibar${na ? ' na' : ''}`} aria-hidden="true">
@@ -271,13 +288,17 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
         />
       </dl>
 
+      <PositionRiskCalc sim={sim} />
+
       <div>
         <h3 className="panel-title">
-          Price fan // {sim.horizon_days}d horizon · {sim.runs} runs · {sim.sample_paths.length} sample paths
+          Price fan // {sim.horizon_days}d horizon · {sim.runs} runs
         </h3>
         <FanChart
           paths={sim.sample_paths}
           bands={sim.bands}
+          dailyBands={sim.daily_bands ?? undefined}
+          events={sim.events ?? []}
           currentPrice={sim.current_price}
           horizonDays={sim.horizon_days}
         />
@@ -288,6 +309,93 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
         <AgentMixBar mix={sim.agent_mix} agents={sim.agents} />
       </div>
     </div>
+  );
+}
+
+function PositionRiskCalc({ sim }: { sim: SimulationResponse }) {
+  const inputId = useId();
+  const hintId = useId();
+  const [text, setText] = useState('10.000.000');
+  const amount = parseRupiah(text);
+  const risk = amount == null ? null : positionRisk(amount, sim.current_price, sim.bands);
+  const days = sim.horizon_days;
+  const worst = risk?.outcomes[0];
+
+  const labels: Record<string, { name: string; color: string; tip: string }> = {
+    p10: {
+      name: 'Bad case (P10)',
+      color: palette.red,
+      tip: `1 in 10 simulated runs ended worse than this after ${days} trading days.`,
+    },
+    p50: {
+      name: 'Middle case (P50)',
+      color: palette.text,
+      tip: 'Half of the runs ended above this and half below. Not a prediction of direction.',
+    },
+    p90: {
+      name: 'Good case (P90)',
+      color: palette.cyan,
+      tip: `Only 1 in 10 simulated runs ended better than this after ${days} trading days.`,
+    },
+  };
+
+  return (
+    <section className="risk-calc" aria-label="Position risk calculator">
+      <h3 className="panel-title">Position risk // what could {amount ? formatIdrCompact(amount) : 'your money'} become?</h3>
+      <div className="toolbar">
+        <label htmlFor={inputId} className="field">
+          IF I INVEST Rp &gt;
+        </label>
+        <input
+          id={inputId}
+          className="input"
+          inputMode="numeric"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          aria-invalid={amount == null}
+          aria-describedby={hintId}
+          style={{ width: 160 }}
+        />
+        <span id={hintId} className="dim mono" style={{ fontSize: 11 }}>
+          {amount == null
+            ? 'Enter an amount, e.g. 10.000.000 or 10jt'
+            : risk && risk.lots > 0
+              ? `≈ ${risk.lots.toLocaleString('en-US')} lot${risk.lots === 1 ? '' : 's'} at ${formatIdr(sim.current_price)}`
+              : `Less than 1 lot (${formatIdr(sim.current_price * LOT_SIZE)})`}
+        </span>
+      </div>
+
+      {risk && worst && (
+        <>
+          <dl className="stat-grid" style={{ margin: 0 }}>
+            {risk.outcomes.map((o) => (
+              <div key={o.key} className="stat" style={{ ['--stat' as string]: labels[o.key].color }}>
+                <dt>
+                  <Tip text={labels[o.key].tip}>{labels[o.key].name}</Tip>
+                </dt>
+                <dd>{formatIdrCompact(o.value)}</dd>
+                <dd className="risk-change">
+                  {formatIdrCompact(o.change, true)} ({formatSignedPct(o.changePct)})
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="risk-summary">
+            {worst.change < 0 ? (
+              <>
+                Realistic worst case: <strong style={{ color: palette.red }}>{formatIdrCompact(worst.change)}</strong>{' '}
+                in {days} trading days, with a 1 in 10 chance it's worse.
+              </>
+            ) : (
+              <>Even the bad case ends above today's price; dividends or a calm stock can do that.</>
+            )}{' '}
+            <span className="dim">
+              Backtested: real outcomes fell below the bad case about 1 in 10 times. Excludes fees and taxes.
+            </span>
+          </p>
+        </>
+      )}
+    </section>
   );
 }
 

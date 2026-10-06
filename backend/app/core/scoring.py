@@ -145,6 +145,57 @@ def score_profitability(c: dict[str, Any]) -> tuple[float, float]:
     return round(norm * 20, 2), 1.0
 
 
+def _pct(x: float) -> str:
+    return f"{x * 100:.1f}%"
+
+
+def explain_inputs(c: dict[str, Any]) -> dict[str, dict[str, str | None]]:
+    """The raw input behind each sub-score and the rule that maps it to points.
+
+    Lets the UI show "ROE 18.0% -> 14.4 / 20 (full marks at 25%)" so users can
+    check the score instead of taking it on faith. The rule text mirrors the
+    score_* functions above; keep the two in sync.
+    """
+    pe = _num(c.get("pe_ttm"))
+    der = _num(c.get("der_mrq"))
+    roe = _num(c.get("roe_ttm"))
+    roa = _num(c.get("roa_ttm"))
+    price = _num(c.get("last_close_price"))
+    hi = _num(c.get("52_w_high_price"))
+    lo = _num(c.get("52_w_low_price"))
+    chg = _num(c.get("daily_close_change"))
+
+    momentum_input = None
+    if price is not None and hi is not None and lo is not None and hi > lo:
+        position = _clamp((price - lo) / (hi - lo))
+        momentum_input = f"{position * 100:.0f}% of 52-week range"
+        if chg is not None:
+            momentum_input += f", today {chg * 100:+.1f}%"
+
+    return {
+        "valuation": {
+            "input": f"P/E {pe:.1f}" if pe is not None and pe > 0 else None,
+            "rule": "Full marks at P/E 5 or lower, zero at 25 or higher",
+        },
+        "momentum": {
+            "input": momentum_input,
+            "rule": "Up to 14 pts for sitting near 65% of the 52-week range, up to 6 pts for today's move",
+        },
+        "debt": {
+            "input": f"Debt/equity {der:.2f}" if der is not None else None,
+            "rule": "Full marks at 0, zero at 2.5 or higher",
+        },
+        "quality": {
+            "input": f"ROE {_pct(roe)}" if roe is not None else None,
+            "rule": "Zero at 0%, full marks at 25% or higher",
+        },
+        "profitability": {
+            "input": f"ROA {_pct(roa)}" if roa is not None else None,
+            "rule": "Zero at 0%, full marks at 15% or higher",
+        },
+    }
+
+
 REGIME_BANDS = [
     (70, "Accumulation", "green"),
     (50, "Recovery", "yellow"),
@@ -185,6 +236,7 @@ class ScoreResult:
     sub_scores: SubScores
     confidence: float
     last_close_price: float | None
+    breakdown: dict[str, dict[str, str | None]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -215,4 +267,5 @@ def score_company(c: dict[str, Any]) -> ScoreResult:
         sub_scores=subs,
         confidence=confidence,
         last_close_price=_num(c.get("last_close_price")),
+        breakdown=explain_inputs(c),
     )

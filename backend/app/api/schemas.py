@@ -14,6 +14,11 @@ class SubScoresModel(BaseModel):
     profitability: float
 
 
+class SubScoreExplainModel(BaseModel):
+    input: str | None = None  # raw value behind the sub-score, e.g. "ROE 18.0%"; None = no data
+    rule: str  # how that value maps to 0-20 points
+
+
 class ScoreModel(BaseModel):
     symbol: str
     company_name: str
@@ -26,6 +31,7 @@ class ScoreModel(BaseModel):
     sub_scores_normalized: dict[str, float]
     confidence: float
     last_close_price: float | None = None
+    breakdown: dict[str, SubScoreExplainModel] | None = None
 
 
 class ScreenResponse(BaseModel):
@@ -79,6 +85,7 @@ class SimulationResponse(BaseModel):
     events: list[SimEvent] = []  # known events inside the horizon (e.g. ex-dividend dates)
     agent_mix: AgentMixModel
     bands: BandsModel
+    daily_bands: dict[str, list[float]] | None = None  # p10..p90 for every day 0..horizon (fan chart)
     expected_return_pct: float
     prob_price_up: float
     sample_paths: list[list[float]]

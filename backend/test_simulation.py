@@ -42,6 +42,19 @@ assert div["events"] == [{"day": 10, "type": "dividend", "amount": 50.0}]
 # outside the horizon / bad values are ignored
 assert run_simulation(1000, GOOD, runs=50, seed=1, dividends=[(31, 50), (5, 0)])["events"] == []
 
+# 3b. Per-day bands for the fan chart: one value per day, ordered, ending at the final bands.
+db = base["daily_bands"]
+assert all(len(db[k]) == 31 for k in ("p10", "p25", "p50", "p75", "p90"))
+assert db["p10"][0] == db["p90"][0] == 1000
+assert all(db["p10"][d] <= db["p50"][d] <= db["p90"][d] for d in range(31))
+assert db["p90"][30] == base["bands"]["p90"] and db["p10"][30] == base["bands"]["p10"]
+
+# 3c. Score breakdown: raw input + rule per sub-score, None when the input is missing.
+from app.core.scoring import score_company  # noqa: E402
+bd = score_company({"symbol": "X", "roe_ttm": 0.18, "pe_ttm": None}).breakdown
+assert bd["quality"]["input"] == "ROE 18.0%" and "25%" in bd["quality"]["rule"]
+assert bd["valuation"]["input"] is None and bd["momentum"]["input"] is None
+
 # 4. Parsing Sectors corporate actions.
 today = date(2026, 10, 5)  # a Monday
 ca = {

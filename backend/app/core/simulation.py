@@ -278,6 +278,10 @@ def run_simulation(
     bands = {"p10": pct(10), "p25": pct(25), "p50": pct(50), "p75": pct(75), "p90": pct(90)}
     prob_up = round(float((finals > start).mean()), 3)
 
+    # Percentile of every day across all runs, for the shaded bands of the fan chart.
+    q = np.percentile(paths, [10, 25, 50, 75, 90], axis=0)
+    daily_bands = {k: [round(float(v), 2) for v in row] for k, row in zip(("p10", "p25", "p50", "p75", "p90"), q)}
+
     # sample up to 50 paths for a fan chart (downsample days to keep payload small)
     sample_idx = rng.choice(runs, size=min(50, runs), replace=False)
     sample_paths = [[round(float(v), 2) for v in paths[i]] for i in sample_idx]
@@ -293,6 +297,7 @@ def run_simulation(
         "events": [{"day": d, "type": "dividend", "amount": round(a, 2)} for d, a in sorted(divs.items())],
         "agent_mix": mix.as_dict(),
         "bands": bands,
+        "daily_bands": daily_bands,
         "expected_return_pct": round((bands["p50"] / start - 1) * 100, 2),
         "prob_price_up": prob_up,
         "sample_paths": sample_paths,

@@ -137,6 +137,11 @@ button {
   color: var(--text);
 }
 
+/* REPORT CARD sits at the far right of the tab row */
+.tab-right {
+  margin-left: auto;
+}
+
 .tab[aria-selected='true'] {
   color: var(--cyan);
   background: var(--panel);
@@ -1224,6 +1229,68 @@ button {
 .rc-good { color: var(--text); }
 .rc-good .rc-tag { color: var(--cyan); }
 .rc-bad .rc-tag { color: var(--red); }
+
+/* ---------- why this score ---------- */
+.why-input {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.why-rule {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 1px;
+}
+
+/* ---------- position risk calculator ---------- */
+.risk-calc {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  padding: 12px;
+}
+.risk-calc .stat dd.risk-change {
+  font-size: 12px;
+  font-weight: 400;
+  text-shadow: none;
+  color: var(--dim);
+}
+.risk-summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.risk-summary .dim {
+  font-size: 11px;
+}
+
+/* ---------- fan chart legend ---------- */
+.fan-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.06em;
+  padding: 4px 0 0 76px;
+}
+.fan-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fan-legend .sw {
+  display: inline-block;
+  width: 16px;
+  height: 8px;
+}
+.fan-legend .sw-outer { background: color-mix(in srgb, var(--cyan) 12%, transparent); border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent); }
+.fan-legend .sw-inner { background: color-mix(in srgb, var(--cyan) 30%, transparent); }
+.fan-legend .sw-median { height: 2px; background: var(--cyan); }
+.fan-legend .sw-now { height: 0; border-top: 1px dashed var(--text); }
+.fan-legend .sw-div { width: 0; height: 10px; border-left: 1px dashed var(--amber); }
 
 
 /* ==========================================================================

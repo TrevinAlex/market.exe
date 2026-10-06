@@ -126,7 +126,14 @@ The health score is a transparent snapshot of a company's financial condition to
 
 **Caveat:** the test used stocks in LQ45 today, which slightly favours stocks that did well (survivorship bias).
 
-The backtest scripts aren't in the repository yet. The volatility model's coefficients are hardcoded in `simulation.py` (`_VOL_MODEL`).
+To reproduce the backtest (free Yahoo Finance prices, no Sectors credits), run from the repo root:
+
+```powershell
+backend\.venv\Scripts\python.exe backtest\run_backtest.py --quick   # 8 stocks, about 2 minutes
+backend\.venv\Scripts\python.exe backtest\run_backtest.py           # all 45 stocks, about 10-15 minutes
+```
+
+It prints the report-card metrics and writes them to `backtest/results.json`. Price downloads are cached in `backtest/data/` (git-ignored). The script is a rebuild of the original research scripts, so its numbers can differ slightly from the table above; the 8-stock quick run gives 77.6% inside P10–P90 and 51.0% inside P25–P75. The volatility model's coefficients used by the app are hardcoded in `simulation.py` (`_VOL_MODEL`).
 
 ## API
 
