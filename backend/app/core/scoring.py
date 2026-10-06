@@ -51,7 +51,6 @@ def flatten_report(report: dict[str, Any]) -> dict[str, Any]:
         "market_cap": overview.get("market_cap"),
     }
 
-    # 52-week range lives as {date: price} dicts under overview.
     def _first_val(d: Any) -> float | None:
         if isinstance(d, dict) and d:
             return _num(next(iter(d.values())))
@@ -60,10 +59,8 @@ def flatten_report(report: dict[str, Any]) -> dict[str, Any]:
     flat["52_w_high_price"] = _first_val(overview.get("52_w_high"))
     flat["52_w_low_price"] = _first_val(overview.get("52_w_low"))
 
-    # Valuation: forward_pe is the report's PE proxy (pe_ttm not in report).
     flat["pe_ttm"] = valuation.get("forward_pe")
 
-    # Latest-year ratios from historical_financial_ratio (take the last entry).
     ratios = financials.get("historical_financial_ratio") or []
     latest = ratios[-1] if ratios else {}
     prof = (latest.get("profitability") or {})
@@ -72,18 +69,12 @@ def flatten_report(report: dict[str, Any]) -> dict[str, Any]:
     flat["roa_ttm"] = prof.get("roa")
     flat["der_mrq"] = lev.get("debt_to_equity_ratio")
 
-    # Analyst forecast momentum (future section) -> stash for optional use.
     growth = future.get("company_growth_forecasts") or []
     flat["forecast_eps_growth"] = (growth[0].get("eps_growth") if growth else None)
 
     return flat
 
 
-# ---------------------------------------------------------------------------
-# Individual dimensions. Each returns (sub_score_0_to_20, confidence_0_to_1).
-# Confidence drops when inputs are missing, so the UI can show which signals
-# are backed by data.
-# ---------------------------------------------------------------------------
 
 def score_valuation(c: dict[str, Any]) -> tuple[float, float]:
     """Cheaper than a reasonable PE band = higher score.
@@ -94,8 +85,7 @@ def score_valuation(c: dict[str, Any]) -> tuple[float, float]:
     """
     pe = _num(c.get("pe_ttm"))
     if pe is None or pe <= 0:
-        return 10.0, 0.0  # neutral, no confidence
-    # map PE 5 -> best, 25 -> worst
+        return 10.0, 0.0
     norm = _clamp((25.0 - pe) / (25.0 - 5.0))
     return round(norm * 20, 2), 1.0
 
@@ -108,9 +98,8 @@ def score_momentum(c: dict[str, Any]) -> tuple[float, float]:
     chg = _num(c.get("daily_close_change")) or 0.0
     if price is None or hi is None or lo is None or hi <= lo:
         return 10.0, 0.0
-    position = _clamp((price - lo) / (hi - lo))  # 0 = at low, 1 = at high
-    # Mid-upper range with positive drift is healthiest; extreme top = frothy.
-    base = 1.0 - abs(position - 0.65) / 0.65  # peaks around 65% of range
+    position = _clamp((price - lo) / (hi - lo))
+    base = 1.0 - abs(position - 0.65) / 0.65
     drift_bonus = _clamp(0.5 + chg * 10, 0, 1) * 0.3
     norm = _clamp(base * 0.7 + drift_bonus)
     return round(norm * 20, 2), 1.0
@@ -121,7 +110,6 @@ def score_debt(c: dict[str, Any]) -> tuple[float, float]:
     der = _num(c.get("der_mrq"))
     if der is None:
         return 10.0, 0.0
-    # DER 0 -> best, 2.5+ -> worst (financials run higher; this is a floor model)
     norm = _clamp((2.5 - der) / 2.5)
     return round(norm * 20, 2), 1.0
 
@@ -131,7 +119,6 @@ def score_quality(c: dict[str, Any]) -> tuple[float, float]:
     roe = _num(c.get("roe_ttm"))
     if roe is None:
         return 10.0, 0.0
-    # ROE 0 -> worst, 0.25 (25%) -> best
     norm = _clamp(roe / 0.25)
     return round(norm * 20, 2), 1.0
 
@@ -141,7 +128,7 @@ def score_profitability(c: dict[str, Any]) -> tuple[float, float]:
     roa = _num(c.get("roa_ttm"))
     if roa is None:
         return 10.0, 0.0
-    norm = _clamp(roa / 0.15)  # ROA 15% -> best
+    norm = _clamp(roa / 0.15)
     return round(norm * 20, 2), 1.0
 
 
@@ -299,7 +286,6 @@ def fundamentals_history(report: dict[str, Any], max_years: int = 8) -> dict[str
             "debt": parts[1][0],
             "quality": parts[2][0],
             "profitability": parts[3][0],
-            # 4 sub-scores x 20 = 80 points, rescaled to 0-100. None when no input is known.
             "score": round(sum(s for s, _ in parts) * 100 / 80, 1) if known else None,
         })
 

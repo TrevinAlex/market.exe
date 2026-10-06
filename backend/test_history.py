@@ -24,7 +24,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 import app.main as main  # noqa: E402
 from app.services.history import HistoryStore  # noqa: E402
 
-# --- fake PostgREST ---------------------------------------------------------
 ROWS: list[dict] = []
 _next_id = [1]
 
@@ -39,7 +38,6 @@ def _match(row: dict, q: dict) -> bool:
 def fake_postgrest(req: httpx.Request) -> httpx.Response:
     assert req.url.path == "/rest/v1/user_history", req.url.path
     assert req.headers["apikey"] == KEY
-    # sb_secret_ keys are not JWTs -> must NOT be sent as a Bearer token.
     assert "authorization" not in req.headers
     q = dict(parse_qsl(req.url.query.decode()))
     if req.method == "POST":
@@ -68,7 +66,6 @@ main.history_store = HistoryStore(
     "https://fake.supabase.co", KEY, transport=httpx.MockTransport(fake_postgrest)
 )
 
-# --- fake Sectors data (no credits) ----------------------------------------
 FAKE = {
     "symbol": "BBCA.JK", "company_name": "PT Bank Central Asia Tbk.", "sector": "Financials",
     "sub_sector": "Banks", "last_close_price": 9500.0, "daily_close_change": 0.004,
@@ -92,7 +89,6 @@ async def _no_actions(symbol):
     return {}
 
 
-# /api/simulate also fetches daily closes + corporate actions; never hit the real API.
 main.sectors_client.daily_closes = _no_closes
 main.sectors_client.corporate_actions = _no_actions
 main.flatten_report = lambda r: r
@@ -108,12 +104,10 @@ def register(name):
 
 alice, bob = register("alice"), register("bob")
 
-# 1. Anonymous visitors: data still works, nothing recorded; history needs login.
 assert c.get("/api/company/BBCA").status_code == 200
 assert ROWS == []
 assert c.get("/api/history").status_code == 401
 
-# 2. Logged-in company lookup + simulation are recorded.
 assert c.get("/api/company/bbca", headers=alice).status_code == 200
 assert c.post("/api/simulate/BBCA?runs=50&days=5", headers=alice).status_code == 200
 assert c.get("/api/company/BBCA", headers=bob).status_code == 200
@@ -123,29 +117,25 @@ r = c.get("/api/history", headers=alice)
 assert r.status_code == 200, r.text
 h = r.json()
 assert h["total"] == 2
-assert [e["kind"] for e in h["results"]] == ["simulation", "company"]  # newest first
+assert [e["kind"] for e in h["results"]] == ["simulation", "company"]
 sim = h["results"][0]
 assert sim["symbol"] == "BBCA" and sim["params"] == {"runs": 50, "days": 5}
 assert {"expected_return_pct", "prob_price_up", "regime"} <= sim["result"].keys()
 
-# 3. Filter by kind + pagination.
 assert c.get("/api/history?kind=company", headers=alice).json()["total"] == 1
 assert len(c.get("/api/history?limit=1", headers=alice).json()["results"]) == 1
 assert c.get("/api/history?kind=bogus", headers=alice).status_code == 422
 
-# 4. Isolation: bob only sees his own, and cannot delete alice's entries.
 assert c.get("/api/history", headers=bob).json()["total"] == 1
 alice_id = h["results"][0]["id"]
 assert c.delete(f"/api/history/{alice_id}", headers=bob).status_code == 404
 assert c.get("/api/history", headers=alice).json()["total"] == 2
 
-# 5. Delete one, then clear all.
 assert c.delete(f"/api/history/{alice_id}", headers=alice).json() == {"deleted": 1}
 assert c.delete("/api/history", headers=alice).json() == {"deleted": 1}
 assert c.get("/api/history", headers=alice).json()["total"] == 0
 assert c.get("/api/history", headers=bob).json()["total"] == 1
 
-# 6. Supabase down -> the lookup still succeeds (history is best-effort).
 main.history_store = HistoryStore(
     "https://fake.supabase.co", KEY,
     transport=httpx.MockTransport(lambda req: httpx.Response(500)),
@@ -153,11 +143,9 @@ main.history_store = HistoryStore(
 assert c.get("/api/company/BBCA", headers=alice).status_code == 200
 assert c.get("/api/history", headers=alice).status_code == 502
 
-# 7. Not configured -> 503.
 main.history_store = HistoryStore("", "")
 assert c.get("/api/history", headers=alice).status_code == 503
 
-# 8. Legacy service_role JWT keys are still sent as Bearer as well.
 seen = {}
 
 

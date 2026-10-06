@@ -5,7 +5,6 @@ import { Logo } from './Logo';
 
 type Mode = 'login' | 'register';
 
-/** Login / register form for user accounts. Calls onDone after success. */
 export function AuthForm({ initialMode = 'login', onDone }: { initialMode?: Mode; onDone?: () => void }) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState<Mode>(initialMode);

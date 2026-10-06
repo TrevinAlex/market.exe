@@ -12,7 +12,7 @@ os.environ["USERS_DB_PATH"] = os.path.join(_tmp, "users_pins.db")
 os.environ["AUTH_SECRET"] = "test-secret"
 os.environ["RATE_LIMIT_REQUESTS"] = "1000"
 KEY = "sb_secret_testkey"
-os.environ["SUPABASE_URL"] = "https://fake.supabase.co/rest/v1/"  # dashboard-style URL
+os.environ["SUPABASE_URL"] = "https://fake.supabase.co/rest/v1/"
 os.environ["SUPABASE_SERVICE_KEY"] = KEY
 
 import httpx  # noqa: E402
@@ -21,7 +21,6 @@ from fastapi.testclient import TestClient  # noqa: E402
 import app.main as main  # noqa: E402
 from app.services.pins import PinStore  # noqa: E402
 
-# --- fake PostgREST for user_pins --------------------------------------------
 PINS: list[dict] = []
 _clock = [0]
 
@@ -54,10 +53,8 @@ def fake(req: httpx.Request) -> httpx.Response:
 
 main.pin_store = PinStore(main.settings.supabase_url, KEY, max_pins=3, transport=httpx.MockTransport(fake))
 
-# History store must not be touched by pin scoring.
 main.history_store = type("NoHistory", (), {"enabled": False, "record": None})()
 
-# --- fake Sectors data --------------------------------------------------------
 async def _fake_report(symbol):
     if symbol == "GONE":
         return None
@@ -83,42 +80,34 @@ def register(name):
 
 alice, bob = register("alice"), register("bob")
 
-# 1. Login required.
 assert c.get("/api/pins").status_code == 401
 assert c.put("/api/pins/BBCA").status_code == 401
 
-# 2. Pin (case/.JK-insensitive), idempotent, ordered.
 assert c.put("/api/pins/bbca", headers=alice).json() == {"symbol": "BBCA", "pinned": True, "added": True}
 assert c.put("/api/pins/BBCA.JK", headers=alice).json()["added"] is False
 assert c.put("/api/pins/TLKM", headers=alice).status_code == 200
 r = c.get("/api/pins", headers=alice).json()
 assert [p["symbol"] for p in r["pins"]] == ["BBCA", "TLKM"] and r["max_pins"] == 3
-assert all(p["score"] is None for p in r["pins"])  # scores only on request
+assert all(p["score"] is None for p in r["pins"])
 
-# 3. Invalid ticker -> 400, never reaches Supabase.
 assert c.put("/api/pins/BB'1", headers=alice).status_code == 400
 
-# 4. Limit.
 assert c.put("/api/pins/GONE", headers=alice).status_code == 200
 assert c.put("/api/pins/ASII", headers=alice).status_code == 409
 
-# 5. ?scores=true attaches a score; unfetchable stocks get null instead of failing.
 r = c.get("/api/pins?scores=true", headers=alice).json()
 by = {p["symbol"]: p["score"] for p in r["pins"]}
 assert by["BBCA"]["company_name"] == "PT BBCA Tbk." and by["TLKM"]["composite"] > 0
 assert by["GONE"] is None
 
-# 6. Isolation.
 assert c.get("/api/pins", headers=bob).json()["pins"] == []
 assert c.delete("/api/pins/BBCA", headers=bob).json()["removed"] is False
 assert len(c.get("/api/pins", headers=alice).json()["pins"]) == 3
 
-# 7. Unpin (idempotent).
 assert c.delete("/api/pins/BBCA", headers=alice).json() == {"symbol": "BBCA", "pinned": False, "removed": True}
 assert c.delete("/api/pins/BBCA", headers=alice).json()["removed"] is False
 assert [p["symbol"] for p in c.get("/api/pins", headers=alice).json()["pins"]] == ["TLKM", "GONE"]
 
-# 8. Supabase down -> 502; not configured -> 503.
 main.pin_store = PinStore("https://x.supabase.co", KEY, transport=httpx.MockTransport(lambda r: httpx.Response(500)))
 assert c.get("/api/pins", headers=alice).status_code == 502
 main.pin_store = PinStore("", "")

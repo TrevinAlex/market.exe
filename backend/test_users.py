@@ -32,19 +32,16 @@ async def _admin_test() -> dict:
 c = TestClient(app)
 creds = {"username": "trevin", "password": "s3cret-pass"}
 
-# 1. Register -> 201 + token; duplicate (case-insensitive) -> 409.
 r = c.post("/api/auth/register", json=creds)
 assert r.status_code == 201, r.text
 body = r.json()
 assert body["user"]["username"] == "trevin" and body["access_token"]
 assert c.post("/api/auth/register", json={**creds, "username": "TREVIN"}).status_code == 409
 
-# 2. Validation: short password / bad username -> 422.
 assert c.post("/api/auth/register", json={"username": "ab", "password": "12345678"}).status_code == 422
 assert c.post("/api/auth/register", json={"username": "x y z", "password": "12345678"}).status_code == 422
 assert c.post("/api/auth/register", json={"username": "abcd", "password": "short"}).status_code == 422
 
-# 3. Login: right -> token that works on /me and user routes; wrong -> 401.
 r = c.post("/api/auth/login", json=creds)
 assert r.status_code == 200, r.text
 tok = r.json()["access_token"]
@@ -55,24 +52,19 @@ assert c.get("/api/_user_test", headers=h).status_code == 200
 assert c.post("/api/auth/login", json={**creds, "password": "wrong-pass"}).status_code == 401
 assert c.post("/api/auth/login", json={"username": "nobody", "password": "whatever1"}).status_code == 401
 
-# 4. No / bogus / expired token -> 401.
 assert c.get("/api/auth/me").status_code == 401
 assert c.get("/api/auth/me", headers={"Authorization": "Bearer nope"}).status_code == 401
 u = user_store.get(me.json()["id"])
 expired, _ = issue_user_token(u, now=0)
 assert c.get("/api/auth/me", headers={"Authorization": f"Bearer {expired}"}).status_code == 401
-# Token for a user id that doesn't exist -> 401.
 ghost, _ = issue_user_token(User(id=999999, username="ghost", created_at=0))
 assert c.get("/api/auth/me", headers={"Authorization": f"Bearer {ghost}"}).status_code == 401
 
-# 5. A user token must NOT open admin routes.
 assert not verify_token(tok)
 assert c.post("/api/admin/_test2", headers=h).status_code == 401
 
-# 6. Data routes remain public.
 assert c.get("/api/company/BB!!").status_code == 400
 
-# 7. Brute-force guard trips on user login too.
 for _ in range(3):
     c.post("/api/auth/login", json={**creds, "password": "wrong-pass"})
 assert c.post("/api/auth/login", json=creds).status_code == 429

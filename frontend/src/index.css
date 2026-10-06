@@ -2,9 +2,6 @@
 @import '@fontsource/jetbrains-mono/700.css';
 
 :root {
-  /* NAVY theme. Variable names are kept from the original neon palette so
-     every rule and component keeps working; only the values changed.
-     --cyan is now the UI accent (blue), regime colours live in tokens.ts. */
   --bg: #0a1020;
   --panel: #111b2e;
   --panel-2: #162339;
@@ -90,7 +87,6 @@ button {
   color: inherit;
 }
 
-/* ---------- layout ---------- */
 
 .app {
   max-width: 1280px;
@@ -149,7 +145,6 @@ button {
   color: var(--text);
 }
 
-/* REPORT CARD sits at the far right of the tab row */
 .tab-right {
   margin-left: auto;
 }
@@ -162,7 +157,6 @@ button {
   box-shadow: inset 0 2px 0 var(--cyan);
 }
 
-/* ---------- HUD panel with corner brackets ---------- */
 
 .panel {
   position: relative;
@@ -211,7 +205,6 @@ button {
   gap: 12px;
 }
 
-/* ---------- controls ---------- */
 
 .toolbar {
   display: flex;
@@ -302,7 +295,6 @@ button {
   color: var(--dim);
 }
 
-/* ---------- terminal states ---------- */
 
 .terminal-line {
   font-family: var(--font-mono);
@@ -356,7 +348,6 @@ button {
   padding: 16px 0;
 }
 
-/* ---------- regime badge ---------- */
 
 .regime-badge {
   font-family: var(--font-mono);
@@ -372,7 +363,6 @@ button {
   font-size: 15px;
 }
 
-/* ---------- HP bar ---------- */
 
 .hp {
   display: flex;
@@ -408,7 +398,6 @@ button {
   transition: width 600ms ease-out;
 }
 
-/* scan-line overlay: fine horizontal lines + a slow sweeping highlight */
 .hp-fill::before {
   content: '';
   position: absolute;
@@ -501,7 +490,6 @@ button {
   font-size: 20px;
 }
 
-/* In list rows, reserve the tag's width so every bar has the same length. */
 .ticker-row .hp-tag-slot {
   width: 74px;
   flex: none;
@@ -517,7 +505,6 @@ button {
   white-space: nowrap;
 }
 
-/* ---------- sub-score dots ---------- */
 
 .dots-group {
   display: flex;
@@ -604,7 +591,6 @@ button {
   color: var(--cyan);
 }
 
-/* ---------- screener rows ---------- */
 
 .ticker-list {
   list-style: none;
@@ -688,7 +674,6 @@ button {
   }
 }
 
-/* ---------- heatmap ---------- */
 
 .headline {
   font-family: var(--font-mono);
@@ -789,7 +774,6 @@ button {
   vertical-align: middle;
 }
 
-/* ---------- company ---------- */
 
 .company-grid {
   display: grid;
@@ -871,7 +855,6 @@ button {
   box-shadow: none;
 }
 
-/* ---------- simulation ---------- */
 
 .stat-grid {
   display: grid;
@@ -960,7 +943,6 @@ button {
   margin: 0;
 }
 
-/* ---------- reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
   .hp-fill::after,
@@ -976,13 +958,11 @@ button {
   }
 }
 
-/* ---- Explanatory tooltips (components/Tip.tsx) ---- */
 .tip-wrap {
   position: relative;
   display: inline-block;
 }
 
-/* Plain-text terms get a dotted underline so users know they can hover them. */
 .tip-term {
   cursor: help;
   border-bottom: 1px dotted color-mix(in srgb, var(--cyan) 60%, transparent);
@@ -1021,7 +1001,6 @@ button {
   pointer-events: none;
 }
 
-/* Bulleted content inside a pop-up (regime overview). */
 .tip-list {
   display: flex;
   flex-direction: column;
@@ -1033,13 +1012,11 @@ button {
   max-width: 340px;
 }
 
-/* Pop-ups near the right edge open leftwards so they stay on screen. */
 .tip-wrap.tip-right .tip {
   left: auto;
   right: 0;
 }
 
-/* Invisible bridge across the 8px gap so the pointer can move onto the pop-up. */
 .tip::before {
   content: '';
   position: absolute;
@@ -1061,7 +1038,6 @@ button {
   }
 }
 
-/* ---------- user auth ---------- */
 
 .user-menu {
   display: inline-flex;
@@ -1113,7 +1089,6 @@ button {
   font-family: var(--font-mono);
 }
 
-/* ---------- user history ---------- */
 
 .history-list {
   list-style: none;
@@ -1155,7 +1130,6 @@ button {
   }
 }
 
-/* ---------- pinned stocks ---------- */
 
 .sym-cell {
   display: inline-flex;
@@ -1192,7 +1166,6 @@ button {
   cursor: default;
 }
 
-/* ---------- report card ---------- */
 
 .rc-headline { font-size: 16px; letter-spacing: 0.04em; }
 .rc-headline .rc-score { color: var(--cyan); text-shadow: var(--glow-cyan); }
@@ -1242,7 +1215,6 @@ button {
 .rc-good .rc-tag { color: var(--cyan); }
 .rc-bad .rc-tag { color: var(--red); }
 
-/* ---------- why this score ---------- */
 .why-input {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -1255,7 +1227,6 @@ button {
   margin-top: 1px;
 }
 
-/* ---------- position risk calculator ---------- */
 .risk-calc {
   display: grid;
   gap: 10px;
@@ -1278,7 +1249,6 @@ button {
   font-size: 11px;
 }
 
-/* ---------- fundamentals history (yearly, from the Company Report) ---------- */
 .fund-history {
   display: grid;
   gap: 10px;
@@ -1325,7 +1295,6 @@ button {
   font-family: var(--mono, monospace);
 }
 
-/* ---------- fan chart legend ---------- */
 .fan-legend {
   display: flex;
   flex-wrap: wrap;
@@ -1352,12 +1321,6 @@ button {
 .fan-legend .sw-div { width: 0; height: 10px; border-left: 1px dashed var(--amber); }
 
 
-/* ==========================================================================
-   TONE + RETRO LAYER
-   Softer glow (strong glow only where it carries meaning: HP bars, regime
-   badges, the brand) plus a few CRT/terminal touches. Everything here
-   overrides rules above, so deleting this block restores the old look.
-   ========================================================================== */
 
 :root {
   --glow-cyan: 0 0 4px rgba(0, 245, 255, 0.3);
@@ -1370,7 +1333,6 @@ button {
   );
 }
 
-/* --- glow: off for body text, numbers, tables and controls --- */
 .tab[aria-selected='true'],
 .hp-value b,
 .dots-row,
@@ -1390,7 +1352,6 @@ button {
 .tooltip,
 .tip { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
 
-/* --- glow: kept, but softer --- */
 .brand { text-shadow: 0 0 4px rgba(0, 245, 255, 0.4); }
 .headline b { text-shadow: 0 0 4px rgba(255, 45, 85, 0.4); }
 .regime-badge { text-shadow: 0 0 3px color-mix(in srgb, var(--regime) 40%, transparent); }
@@ -1402,7 +1363,6 @@ button {
   50% { opacity: 0.5; box-shadow: none; }
 }
 
-/* --- retro: segmented HP bar (game-style blocks instead of a smooth fill) --- */
 .hp-fill::before {
   background:
     repeating-linear-gradient(90deg, transparent 0 8px, var(--bg) 8px 10px),
@@ -1413,9 +1373,8 @@ button {
     repeating-linear-gradient(90deg, transparent 0 14px, var(--bg) 14px 17px),
     repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0 1px, transparent 1px 3px);
 }
-.hp-fill::after { opacity: 0.5; } /* gentler sweeping highlight */
+.hp-fill::after { opacity: 0.5; }
 
-/* --- retro: faint CRT scanlines on panels and a soft vignette on the page --- */
 .panel { background-image: var(--scanlines); }
 body {
   background:
@@ -1425,22 +1384,12 @@ body {
   background-attachment: fixed;
 }
 
-/* --- retro: terminal-style labels --- */
 .tab[aria-selected='true']::before { content: '> '; color: var(--cyan); }
 .panel-title::before { content: '// '; opacity: 0.6; }
 .rc-group::before { content: '> '; opacity: 1; }
 
 
-/* ==========================================================================
-   NAVY LAYER
-   Fintech look: steel-blue panels, rounded corners, pill tabs/badges,
-   blue→violet accents, no neon glow / scanlines / terminal prefixes.
-   Style-only: it overrides the rules above and changes no behaviour.
-   Deleting this block (and the :root values at the top) restores the
-   previous look.
-   ========================================================================== */
 
-/* --- page --- */
 body {
   background:
     radial-gradient(1200px 600px at 85% -10%, rgba(91, 141, 239, 0.1), transparent 60%),
@@ -1460,7 +1409,6 @@ body {
   padding: 24px 24px 56px;
 }
 
-/* --- header / brand --- */
 .app-header {
   margin-bottom: 20px;
 }
@@ -1481,7 +1429,6 @@ body {
   color: var(--dim);
 }
 
-/* --- tabs: pill navigation --- */
 .tabbar {
   gap: 6px;
   padding: 5px;
@@ -1527,7 +1474,6 @@ body {
   content: none;
 }
 
-/* --- panels --- */
 .panel {
   border-color: #1c2c48;
   border-radius: var(--radius);
@@ -1566,7 +1512,6 @@ body {
   text-shadow: none;
 }
 
-/* --- controls --- */
 .field {
   font-family: var(--font-sans);
   color: var(--dim);
@@ -1646,7 +1591,6 @@ body {
   color: var(--dim);
 }
 
-/* --- loading / errors --- */
 .terminal-line {
   color: var(--dim);
 }
@@ -1677,7 +1621,6 @@ body {
   font-family: var(--font-sans);
 }
 
-/* --- regime badge: soft pill --- */
 .regime-badge {
   display: inline-block;
   font-family: var(--font-sans);
@@ -1696,7 +1639,6 @@ body {
   padding: 5px 14px;
 }
 
-/* --- health bar: smooth rounded gradient --- */
 .hp-track {
   height: 8px;
   border: 0;
@@ -1727,7 +1669,6 @@ body {
   box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.45);
 }
 
-/* calmer "critical" pulse: opacity only, no glow */
 @keyframes critical {
   0%,
   100% {
@@ -1777,7 +1718,6 @@ body {
   background: rgba(245, 165, 36, 0.14);
 }
 
-/* --- sub-score dots --- */
 .dots-label {
   font-family: var(--font-sans);
   letter-spacing: 0.04em;
@@ -1797,7 +1737,6 @@ body {
   color: var(--amber);
 }
 
-/* --- tooltips --- */
 .tooltip,
 .tip {
   background: #0f1a2e;
@@ -1820,7 +1759,6 @@ body {
   outline-color: var(--cyan);
 }
 
-/* --- screener rows --- */
 .ticker-list {
   gap: 6px;
 }
@@ -1853,7 +1791,6 @@ body {
   padding: 0 17px 6px;
 }
 
-/* --- heatmap --- */
 .heat-grid {
   gap: 12px;
 }
@@ -1899,7 +1836,6 @@ body {
   border-radius: 3px;
 }
 
-/* --- company --- */
 .company-head h2 {
   font-family: var(--font-display);
   font-weight: 700;
@@ -1933,7 +1869,6 @@ body {
   background: var(--grey);
 }
 
-/* --- stats / simulation --- */
 .stat-grid {
   gap: 10px;
 }
@@ -1972,7 +1907,6 @@ body {
   font-family: var(--font-sans);
 }
 
-/* fan chart legend: match the chart (median = teal, bands = teal tints) */
 .fan-legend {
   font-family: var(--font-sans);
   font-size: 11px;
@@ -1996,25 +1930,21 @@ body {
   background: var(--teal);
 }
 
-/* --- pinned --- */
 .pin-btn:hover:not(:disabled),
 .pin-btn[aria-pressed='true'] {
   color: var(--yellow);
   text-shadow: none;
 }
 
-/* --- history --- */
 .history-kind {
   font-family: var(--font-sans);
   letter-spacing: 0.04em;
 }
 
-/* --- auth --- */
 .auth-field {
   font-family: var(--font-sans);
 }
 
-/* --- report card --- */
 .rc-headline {
   font-family: var(--font-display);
   letter-spacing: 0.01em;
@@ -2074,12 +2004,7 @@ body {
 }
 
 
-/* ==========================================================================
-   SOFT + SMOOTH LAYER
-   Slightly muted tones, softer depth and gentle motion. Style-only.
-   ========================================================================== */
 
-/* --- muted page glow --- */
 body {
   background:
     radial-gradient(1200px 640px at 85% -10%, rgba(107, 143, 214, 0.07), transparent 60%),
@@ -2088,7 +2013,6 @@ body {
   background-attachment: fixed;
 }
 
-/* --- softer surfaces --- */
 .panel {
   border-color: rgba(40, 58, 90, 0.55);
   background: linear-gradient(180deg, rgba(19, 31, 52, 0.92) 0%, rgba(15, 25, 44, 0.92) 100%);
@@ -2116,7 +2040,6 @@ body {
   box-shadow: inset 0 0 0 1px rgba(52, 74, 112, 0.7), 0 6px 18px rgba(5, 12, 30, 0.3);
 }
 
-/* --- buttons: muted, smooth hover lift --- */
 .btn {
   background: #172b4b;
   border-color: #253f66;
@@ -2176,7 +2099,6 @@ body {
   outline-color: color-mix(in srgb, var(--cyan) 80%, transparent);
 }
 
-/* --- alert: muted --- */
 .alert {
   color: #f1c4c4;
   background: rgba(223, 123, 123, 0.07);
@@ -2188,13 +2110,11 @@ body {
   border-color: rgba(223, 123, 123, 0.4);
 }
 
-/* --- regime badge: softer tint --- */
 .regime-badge {
   background: color-mix(in srgb, var(--regime) 11%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--regime) 18%, transparent);
 }
 
-/* --- health bar: softer gradient, smoother fill --- */
 .hp-track {
   background: rgba(255, 255, 255, 0.055);
 }
@@ -2212,7 +2132,6 @@ body {
   background: rgba(10, 16, 32, 0.85);
 }
 
-/* --- screener rows: smooth hover --- */
 .ticker-row {
   border-color: rgba(40, 58, 90, 0.5);
   border-left-color: color-mix(in srgb, var(--regime) 75%, transparent);
@@ -2229,7 +2148,6 @@ body {
   box-shadow: 0 10px 24px rgba(3, 8, 20, 0.28);
 }
 
-/* --- heatmap tiles: muted tint, hover lift --- */
 .heat-tile {
   border-color: color-mix(in srgb, var(--heat) 20%, rgba(40, 58, 90, 0.6));
   background:
@@ -2248,7 +2166,6 @@ body {
   color: color-mix(in srgb, var(--heat) 90%, white 6%);
 }
 
-/* --- stats / cards --- */
 .stat,
 .rc-term,
 .risk-calc,
@@ -2273,7 +2190,6 @@ body {
   background: rgba(138, 116, 214, 0.06);
 }
 
-/* --- tooltips: fade + slight rise --- */
 .tip {
   transform: translateY(4px);
   transition: opacity 180ms var(--ease), transform 180ms var(--ease), visibility 180ms;
@@ -2283,7 +2199,6 @@ body {
   transform: translateY(0);
 }
 
-/* --- gentle entrance for panels and tiles --- */
 @keyframes soft-in {
   from {
     opacity: 0;
@@ -2295,14 +2210,11 @@ body {
   }
 }
 
-/* fill-mode "backwards" so no transform is left behind after the animation
-   (a leftover transform would trap tooltips inside the panel's stacking context) */
 .panel,
 .heat-tile {
   animation: soft-in 420ms var(--ease) backwards;
 }
 
-/* --- smooth scrollbars --- */
 * {
   scrollbar-width: thin;
   scrollbar-color: #283a5a transparent;
@@ -2329,12 +2241,6 @@ body {
 }
 
 
-/* ==========================================================================
-   APPLE-STYLE LAYER
-   Modern, simple, tidy: system fonts, flat solid surfaces, hairline
-   separators, segmented-control tabs, inset-grouped list, pill controls,
-   no decorative gradients. Style-only; overrides everything above.
-   ========================================================================== */
 
 :root {
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI Variable Text', 'Segoe UI',
@@ -2360,7 +2266,6 @@ body {
   letter-spacing: -0.005em;
 }
 
-/* numbers: same family as text, tabular so columns line up */
 .mono {
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
@@ -2383,7 +2288,6 @@ body {
   font-weight: 400;
 }
 
-/* --- segmented control tabs --- */
 .tabbar {
   gap: 2px;
   padding: 3px;
@@ -2416,7 +2320,6 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* --- flat panels --- */
 .panel,
 .panel:hover {
   border: 1px solid var(--hairline);
@@ -2439,7 +2342,6 @@ body {
   letter-spacing: -0.015em;
 }
 
-/* --- controls: pills, no borders --- */
 .field {
   font-family: var(--font-sans);
   font-size: 13px;
@@ -2533,7 +2435,6 @@ body {
   font-family: var(--font-sans);
 }
 
-/* --- regime badge: clean pill, no underline from the tooltip wrapper --- */
 .tip-term:has(> .regime-badge) {
   border-bottom: 0;
 }
@@ -2557,7 +2458,6 @@ body {
   padding: 5px 13px;
 }
 
-/* --- health bar: thin, solid, continuous --- */
 .hp-track {
   height: 6px;
   background: var(--fill);
@@ -2577,7 +2477,6 @@ body {
   background: var(--surface);
 }
 
-/* list rows: no boundary ticks, keeps the bar continuous */
 .ticker-row .hp-tick {
   display: none;
 }
@@ -2614,7 +2513,6 @@ body {
   letter-spacing: 0;
 }
 
-/* --- sub-score dots: small, quiet --- */
 .dots-group {
   gap: 14px;
 }
@@ -2646,7 +2544,6 @@ body {
   color: var(--grey);
 }
 
-/* --- tooltips --- */
 .tooltip,
 .tip {
   background: rgba(30, 40, 60, 0.96);
@@ -2656,7 +2553,6 @@ body {
   backdrop-filter: blur(12px);
 }
 
-/* --- screener: inset grouped list --- */
 .ticker-list {
   gap: 0;
   border: 1px solid var(--hairline);
@@ -2726,7 +2622,6 @@ body {
   color: var(--grey);
 }
 
-/* --- heatmap --- */
 .heat-tile,
 .heat-tile:hover {
   border: 1px solid var(--hairline);
@@ -2761,7 +2656,6 @@ body {
   background: var(--fill);
 }
 
-/* --- company / stats --- */
 .company-head h2 {
   font-family: var(--font-display);
   font-weight: 700;
@@ -2829,7 +2723,6 @@ body {
   font-family: var(--font-sans);
 }
 
-/* --- report card --- */
 .rc-table thead th {
   font-family: var(--font-sans);
   font-size: 11px;
@@ -2861,7 +2754,6 @@ body {
   padding: 14px 18px;
 }
 
-/* --- motion: only the quiet entrance remains --- */
 .panel,
 .heat-tile {
   animation-duration: 320ms;
@@ -2869,9 +2761,6 @@ body {
 
 
 
-/* ==========================================================================
-   AUTH (login / register) — centred sign-in card
-   ========================================================================== */
 
 .auth-wrap {
   position: relative;
@@ -2881,7 +2770,6 @@ body {
   margin: 48px auto 32px;
 }
 
-/* soft light behind the card */
 .auth-wrap::before {
   content: '';
   position: absolute;
@@ -3034,7 +2922,6 @@ body {
   }
 }
 
-/* keep the glow from causing sideways scroll on narrow screens */
 @media (max-width: 720px) {
   .auth-wrap::before {
     inset: -40px 0 auto;
@@ -3042,13 +2929,10 @@ body {
 }
 
 
-/* ==========================================================================
-   NATIVE SELECT DROPDOWN — navy list instead of the browser's white one
-   ========================================================================== */
 
 .select {
   color-scheme: dark;
-  background-color: #172133; /* solid, so the open list never inherits a see-through fill */
+  background-color: #172133;
   color: var(--text);
 }
 
@@ -3068,9 +2952,6 @@ body {
 }
 
 
-/* Rounded dropdown list. Uses the browser's customizable <select>
-   (appearance: base-select, Chrome/Edge 135+). Browsers without it skip
-   this block and keep the navy native list above; behaviour is unchanged. */
 @supports (appearance: base-select) {
   .select,
   .select::picker(select) {
@@ -3131,11 +3012,7 @@ body {
 }
 
 
-/* ==========================================================================
-   HEATMAP TILES — balanced 3-column grid, aligned rows inside each tile
-   ========================================================================== */
 
-/* 3 columns on desktop (9 sectors = a clean 3×3), 2 on tablet, 1 on phone */
 .heat-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
@@ -3153,7 +3030,6 @@ body {
   }
 }
 
-/* fixed vertical rhythm so the number, score, bar and legend line up across tiles */
 .heat-tile {
   display: grid;
   grid-template-rows: auto auto auto auto 1fr;
@@ -3215,7 +3091,6 @@ body {
   font-weight: 400;
 }
 
-/* segmented regime bar */
 .heat-tile .stackbar {
   height: 6px;
   gap: 2px;
@@ -3257,7 +3132,6 @@ body {
 }
 
 
-/* ---------- signal profile radar: HTML axis labels with tooltips ---------- */
 .radar {
   position: relative;
   width: 100%;
@@ -3287,7 +3161,6 @@ body {
   color: var(--text);
 }
 
-/* keep the pop-up above neighbouring labels */
 .radar-label:hover,
 .radar-label:focus-within {
   z-index: 5;
@@ -3302,9 +3175,6 @@ body {
 }
 
 
-/* ==========================================================================
-   ERRORS — alert banner + inline field error
-   ========================================================================== */
 
 .alert {
   display: grid;
@@ -3357,7 +3227,6 @@ body {
   cursor: wait;
 }
 
-/* rate limit: amber, it is a wait, not a failure */
 .alert-warn {
   border-color: rgba(220, 162, 78, 0.3);
   background: linear-gradient(180deg, rgba(220, 162, 78, 0.1), rgba(220, 162, 78, 0.05));
@@ -3385,7 +3254,6 @@ body {
   }
 }
 
-/* inline validation next to an input */
 .input[aria-invalid='true'],
 .input[aria-invalid='true']:focus {
   border-color: transparent;
@@ -3447,9 +3315,6 @@ body {
 }
 
 
-/* ==========================================================================
-   TICKER SEARCH — LQ45 suggestion dropdown
-   ========================================================================== */
 
 .ticker-combo {
   position: relative;
@@ -3519,10 +3384,6 @@ body {
 }
 
 
-/* ==========================================================================
-   TITLES — Title Case ("Screener // LQ45 · Ranked By Health Score")
-   CSS-only: the source text is unchanged, the browser capitalises each word.
-   ========================================================================== */
 .panel-title,
 .headline,
 .heat-tile h3,
@@ -3531,7 +3392,6 @@ body {
   text-transform: capitalize;
 }
 
-/* explanations inside a title keep their normal sentence case */
 .panel-title .tip,
 .headline .tip,
 .rc-group .tip,
@@ -3541,7 +3401,6 @@ body {
 }
 
 
-/* header disclaimer sits next to the Login / Register button, not centred */
 .app-header > .mono.dim {
   margin-left: auto;
   text-align: right;
@@ -3552,11 +3411,6 @@ body {
 }
 
 
-/* ==========================================================================
-   TAB ROW — main tabs as one segmented group on the left, Report Card as a
-   separate pill on the right (lined up under the Login / Register button).
-   CSS-only; the tablist and its keyboard behaviour are unchanged.
-   ========================================================================== */
 .tabbar {
   width: 100%;
   padding: 0;
@@ -3568,7 +3422,6 @@ body {
   row-gap: 8px;
 }
 
-/* the segmented group: each tab paints its slice of the group background */
 .tab:not(.tab-right) {
   position: relative;
   isolation: isolate;
@@ -3594,7 +3447,6 @@ body {
   background: #161d29;
 }
 
-/* selected tab: an inset pill drawn behind the label */
 .tab:not(.tab-right)[aria-selected='true'] {
   background: #161d29;
   box-shadow: none;
@@ -3610,7 +3462,6 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* Report Card: its own pill at the far right */
 .tab.tab-right {
   margin-left: auto;
   padding: 9px 18px;
@@ -3632,9 +3483,6 @@ body {
 }
 
 
-/* ==========================================================================
-   PINS — star button + pinned rows lifted to the top of the screener
-   ========================================================================== */
 
 .pin-btn {
   display: inline-grid;
@@ -3697,7 +3545,6 @@ body {
   }
 }
 
-/* pinned rows: warm tint + gold edge, and a clear gap below the group */
 .ticker-list li.is-pinned .ticker-row {
   background: linear-gradient(90deg, rgba(220, 192, 106, 0.07), transparent 45%);
   box-shadow: inset 3px 0 0 rgba(220, 192, 106, 0.75);
@@ -3718,7 +3565,6 @@ body {
 }
 
 
-/* keep every pin star in the same x position, whatever the ticker's width */
 .ticker-row .sym-cell {
   display: grid;
   grid-template-columns: 52px 28px;
@@ -3726,16 +3572,12 @@ body {
   gap: 6px;
 }
 
-/* ==========================================================================
-   LOGO — MKT mark in the header and on the sign-in card
-   ========================================================================== */
 .logo {
   display: block;
   flex: none;
   filter: drop-shadow(0 0 10px rgba(107, 143, 214, 0.25));
 }
 
-/* the thin "cut" inside each letter takes the colour of what sits behind it */
 .logo .logo-inline {
   stroke: var(--bg);
 }
@@ -3750,7 +3592,6 @@ body {
   display: block;
 }
 
-/* sign-in card: the mark replaces the old gradient "M" tile */
 svg.auth-logo {
   width: 84px;
   height: auto;
@@ -3764,8 +3605,6 @@ svg.auth-logo {
   stroke: #121a28;
 }
 
-/* Tooltips inside the screener list were clipped by the list's rounded
-   overflow mask. Let them escape, and round the first / last rows instead. */
 .ticker-list {
   overflow: visible;
 }
@@ -3780,7 +3619,6 @@ svg.auth-logo {
   border-bottom-right-radius: var(--radius);
 }
 
-/* the hovered row's tooltip sits above the rows below it */
 .ticker-list li {
   position: relative;
 }
@@ -3791,7 +3629,6 @@ svg.auth-logo {
 }
 
 
-/* screener sort control: "SORT BY [Health score ▾] [▼ High → Low]" */
 .sort-field .select {
   min-width: 190px;
 }
@@ -3804,11 +3641,6 @@ svg.auth-logo {
 
 
 
-/* ==========================================================================
-   SCREENER FILTERS — fill the panel width
-   Row 1: Regime chips on the left, Sort by pushed to the right edge.
-   Row 2: Sector and Min score share the full width (50 / 50).
-   ========================================================================== */
 section[aria-label='Filters'] .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -3825,7 +3657,6 @@ section[aria-label='Filters'] .toolbar > .sort-field {
   margin-left: auto;
 }
 
-/* sector + min score: each takes half of row 2 and stretches its control */
 section[aria-label='Filters'] .toolbar > .field:not([role='group']):not(.sort-field) {
   order: 3;
   flex: 1 1 40%;

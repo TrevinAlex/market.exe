@@ -1,7 +1,6 @@
 import type { Regime, SectorRegime } from '../api/types';
 import { REGIMES, REGIME_COLOR_KEY, colorHex, thermalColor } from '../theme/tokens';
 
-/** A sector counts as "under stress" when at least this % of its stocks are in Stress or Distribution. */
 export const SECTOR_STRESS_PCT = 50;
 
 export function SectorHeatmap({ sectors }: { sectors: SectorRegime[] }) {

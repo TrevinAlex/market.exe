@@ -9,11 +9,8 @@ import { usePins } from '../hooks/usePins';
 import { REGIMES, REGIME_COLOR_KEY, SUB_SCORE_KEYS, SUB_SCORE_META, colorHex } from '../theme/tokens';
 
 const INDEX = 'LQ45';
-// LQ45 has 45 members. 50 leaves headroom so a rebalance never truncates the
-// list, and it's still a single Sectors screener request.
 const LIMIT = 50;
 
-/** What the list can be sorted by: the composite health score or one sub-score. */
 type SortKey = 'composite' | SubScoreKey;
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'composite', label: 'Health score' },
@@ -39,8 +36,6 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
 
   const { isPinned } = usePins();
 
-  // Rank = position by health score (unchanged meaning). Pinned stocks are
-  // then lifted to the top, keeping their own rank number and score order.
   const rows = useMemo(() => {
     const list = (data?.results ?? []).filter(
       (r) =>
@@ -48,7 +43,6 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
         (!sector || r.sector === sector) &&
         r.composite >= minScore,
     );
-    // Sort by the chosen score; ties fall back to the health score (high first).
     const ranked = [...list]
       .sort((a, b) => {
         const d = sortValue(a, sortKey) - sortValue(b, sortKey);
@@ -178,7 +172,6 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
               ? `Showing ${rows.length} of ${data.count} stocks`
               : `Showing ${data.count} stocks`}
           </p>
-          {/* Visual column header; only the two explained labels are exposed to assistive tech. */}
           <div className="list-header">
             <span aria-hidden="true">#</span>
             <span aria-hidden="true">TICKER</span>

@@ -27,9 +27,6 @@ from app.config import settings
 
 REPORT_SECTIONS = ["overview", "valuation", "future", "financials"]
 
-# Fields the scorer reads from a screener row. Referencing each one with a
-# benign "(f IS NULL or f IS NOT NULL)" clause forces the screener to surface
-# it into query_values without excluding any row.
 SCREEN_SCORING_FIELDS = [
     "last_close_price",
     "daily_close_change",
@@ -55,7 +52,6 @@ class SectorsClient:
         self._headers = {"Authorization": settings.sectors_api_key}
         self._cache: dict[str, tuple[float, Any]] = {}
 
-    # -- caching -----------------------------------------------------------
     def _cache_get(self, key: str) -> Any | None:
         hit = self._cache.get(key)
         if not hit:
@@ -69,7 +65,6 @@ class SectorsClient:
     def _cache_set(self, key: str, value: Any) -> None:
         self._cache[key] = (time.time(), value)
 
-    # -- requests ----------------------------------------------------------
     async def _get(self, path: str, params: dict[str, Any]) -> Any:
         cache_key = f"{path}?{sorted(params.items())}"
         cached = self._cache_get(cache_key)
@@ -84,7 +79,6 @@ class SectorsClient:
         self._cache_set(cache_key, data)
         return data
 
-    # -- public API --------------------------------------------------------
     @staticmethod
     def _normalize_symbol(symbol: str) -> str:
         """Report endpoint accepts a bare 4-letter ticker; strip any .JK."""
@@ -148,7 +142,6 @@ class SectorsClient:
             params["where"] = where
         data = await self._get("/companies/", params)
         results = data.get("results", []) if isinstance(data, dict) else []
-        # Flatten query_values up into each row so the scorer sees one dict.
         for row in results:
             qv = row.get("query_values")
             if isinstance(qv, dict):

@@ -39,9 +39,6 @@ def supabase_client(
     key: str, transport: httpx.AsyncBaseTransport | None = None
 ) -> httpx.AsyncClient:
     headers = {"apikey": key, "Content-Type": "application/json"}
-    # New-format keys (sb_secret_...) are not JWTs: PostgREST rejects them
-    # in the Authorization header (PGRST301), so send them as apikey only.
-    # Legacy service_role keys are JWTs ("eyJ...") and go in both.
     if key.startswith("eyJ"):
         headers["Authorization"] = f"Bearer {key}"
     return httpx.AsyncClient(timeout=10, transport=transport, headers=headers)
@@ -56,7 +53,7 @@ class HistoryStore:
     ) -> None:
         self._base = rest_url(url, TABLE)
         self._key = service_key
-        self._transport = transport  # injectable for tests
+        self._transport = transport
 
     @property
     def enabled(self) -> bool:
@@ -102,7 +99,6 @@ class HistoryStore:
         async with self._client() as c:
             r = await c.get(self._base, params=params, headers={"Prefer": "count=exact"})
             r.raise_for_status()
-        # Content-Range: "0-9/42" or "*/0"
         total = int(r.headers.get("content-range", "*/0").rsplit("/", 1)[-1] or 0)
         return r.json(), total
 

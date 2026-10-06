@@ -8,7 +8,6 @@ type DailyBands = Record<keyof Bands, number[]>;
 interface Props {
   paths: number[][];
   bands: Bands;
-  /** Per-day percentiles from the backend. Estimated from `paths` when missing. */
   dailyBands?: DailyBands;
   events?: SimEvent[];
   currentPrice: number;
@@ -20,20 +19,14 @@ const H = 320;
 const M = { top: 22, right: 132, bottom: 30, left: 76 };
 const KEYS = ['p10', 'p25', 'p50', 'p75', 'p90'] as const;
 
-/**
- * Fan chart: the P10–P90 (light) and P25–P75 (dark) ranges as shaded bands that
- * widen over the horizon, the median as one bright line, a few faint sample paths
- * for texture, the current price as a dashed baseline, and ex-dividend markers.
- */
 export function FanChart({ paths, bands, dailyBands, events = [], currentPrice, horizonDays }: Props) {
   const titleId = useId();
   const descId = useId();
 
   const db = dailyBands && dailyBands.p50?.length > 1 ? dailyBands : bandsFromPaths(paths, currentPrice, horizonDays);
   const days = Math.max(1, db.p50.length - 1);
-  const shown = paths.slice(0, 12); // a few paths for texture; the bands carry the forecast
+  const shown = paths.slice(0, 12);
 
-  // Scale to the bands (plus the shown paths), so a single extreme path can't squash the chart.
   const values = [currentPrice, ...db.p10, ...db.p90, ...shown.flat()].filter(Number.isFinite);
   let lo = Math.min(...values);
   let hi = Math.max(...values);
@@ -74,7 +67,6 @@ export function FanChart({ paths, bands, dailyBands, events = [], currentPrice, 
           {divs.map((e) => ` Ex-dividend Rp ${e.amount} on trading day ${e.day}.`).join('')}
         </desc>
 
-        {/* grid + y axis */}
         {yTicks.map((t) => (
           <g key={t}>
             <line x1={M.left} x2={x(days)} y1={y(t)} y2={y(t)} stroke={palette.border} strokeWidth={1} />
@@ -106,20 +98,17 @@ export function FanChart({ paths, bands, dailyBands, events = [], currentPrice, 
         ))}
         <line x1={M.left} x2={x(days)} y1={H - M.bottom} y2={H - M.bottom} stroke={palette.border} />
 
-        {/* shaded ranges */}
         <polygon points={area(db.p90, db.p10)} fill={palette.cyan} fillOpacity={0.1} />
         <polygon points={area(db.p75, db.p25)} fill={palette.cyan} fillOpacity={0.22} />
         <polyline points={line(db.p90)} fill="none" stroke={palette.cyan} strokeOpacity={0.35} strokeWidth={1} />
         <polyline points={line(db.p10)} fill="none" stroke={palette.cyan} strokeOpacity={0.35} strokeWidth={1} />
 
-        {/* a few sample paths for texture */}
         <g fill="none" stroke={palette.text} strokeWidth={1} strokeOpacity={0.12}>
           {shown.map((p, i) => (
             <polyline key={i} points={line(p)} />
           ))}
         </g>
 
-        {/* current price baseline */}
         <line
           x1={M.left}
           x2={x(days)}
@@ -130,7 +119,6 @@ export function FanChart({ paths, bands, dailyBands, events = [], currentPrice, 
           strokeDasharray="5 4"
         />
 
-        {/* median */}
         <polyline
           points={line(db.p50)}
           fill="none"
@@ -139,7 +127,6 @@ export function FanChart({ paths, bands, dailyBands, events = [], currentPrice, 
           style={{ filter: 'none' }}
         />
 
-        {/* ex-dividend markers */}
         {divs.map((e) => (
           <g key={`div-${e.day}`}>
             <line
@@ -164,7 +151,6 @@ export function FanChart({ paths, bands, dailyBands, events = [], currentPrice, 
           </g>
         ))}
 
-        {/* end-of-horizon labels (de-overlapped) */}
         {bandLabels(bands, currentPrice, y).map((l) => (
           <text
             key={l.key}
@@ -203,7 +189,6 @@ export function FanChart({ paths, bands, dailyBands, events = [], currentPrice, 
   );
 }
 
-/** Fallback for older responses: per-day percentiles of the sample paths. */
 export function bandsFromPaths(paths: number[][], current: number, horizon: number): DailyBands {
   const days = Math.max(1, horizon, ...paths.map((p) => p.length - 1));
   const out = { p10: [], p25: [], p50: [], p75: [], p90: [] } as DailyBands;

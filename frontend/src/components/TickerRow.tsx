@@ -12,11 +12,6 @@ interface Props {
   onOpen: (symbol: string) => void;
 }
 
-/**
- * One screener line. The whole row is clickable with the mouse; the ticker
- * button is the keyboard entry point (so the focusable dot tooltips are not
- * nested inside another interactive element).
- */
 export function TickerRow({ rank, score, onOpen }: Props) {
   const sym = baseTicker(score.symbol);
   const open = () => onOpen(sym);

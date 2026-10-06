@@ -35,12 +35,9 @@ from app.config import settings
 
 log = logging.getLogger("market.exe.auth")
 
-# No AUTH_SECRET configured -> random per process. Tokens then stop working on
-# restart, which is safe; users just log in again.
 _SECRET = (settings.auth_secret or secrets.token_urlsafe(32)).encode()
 _SIGNING_KEY = hashlib.sha256(_SECRET + b"|" + settings.app_password.encode()).digest()
 
-# Shows an "Authorize" button in /docs.
 _bearer = HTTPBearer(auto_error=False, description="Token from POST /api/auth/login")
 
 
@@ -79,8 +76,7 @@ def verify_token(token: str, now: float | None = None) -> bool:
 
 def check_password(candidate: str) -> bool:
     if not settings.app_password:
-        return False  # admin login disabled
-    # Compare digests so the comparison is constant-time and length-independent.
+        return False
     want = hashlib.sha256(settings.app_password.encode()).digest()
     got = hashlib.sha256(candidate.encode()).digest()
     return hmac.compare_digest(want, got)
@@ -103,8 +99,6 @@ def require_admin(
         )
 
 
-# --- brute-force guard for the login endpoint ------------------------------
-# Much stricter than the global limiter: N failed attempts per IP per window.
 _failures: dict[str, deque[float]] = defaultdict(deque)
 
 

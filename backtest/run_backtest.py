@@ -39,7 +39,6 @@ from app.core.simulation import (  # noqa: E402  (path set above)
     run_simulation,
 )
 
-# LQ45 constituents (2025/26). Younger listings simply contribute fewer forecasts.
 TICKERS = [
     "ACES", "ADMR", "ADRO", "AKRA", "AMMN", "AMRT", "ANTM", "ARTO", "ASII", "BBCA",
     "BBNI", "BBRI", "BBTN", "BMRI", "BRIS", "BRPT", "CPIN", "CTRA", "ESSA", "EXCL",
@@ -49,17 +48,16 @@ TICKERS = [
 ]
 QUICK_TICKERS = ["BBCA", "BBRI", "TLKM", "ASII", "ANTM", "ADRO", "BRPT", "UNVR"]
 
-HORIZON = 30          # trading days forecast ahead
-STEP = 5              # trading days between forecast start dates
-LOOKBACK = 252        # one year of closes, for the 52-week range
-GAP_DAYS = 45         # calendar-day gap between training data and the test year
+HORIZON = 30
+STEP = 5
+LOOKBACK = 252
+GAP_DAYS = 45
 FIRST_TEST_YEAR = 2019
 NEUTRAL = {k: 0.5 for k in ("valuation", "momentum", "debt", "quality", "profitability")}
 
 DATA = HERE / "data"
 
 
-# --------------------------------------------------------------------------- data
 def fetch(symbol: str, start: date, end: date) -> dict:
     """Daily closes + dividends for SYMBOL.JK, cached as JSON."""
     DATA.mkdir(exist_ok=True)
@@ -81,17 +79,15 @@ def fetch(symbol: str, start: date, end: date) -> dict:
             for ts, v in ((res.get("events") or {}).get("dividends") or {}).items()]
     out = {"dates": [d for d, _ in rows], "closes": [float(c) for _, c in rows], "dividends": sorted(divs)}
     cache.write_text(json.dumps(out))
-    time.sleep(0.3)  # be polite to the free endpoint
+    time.sleep(0.3)
     return out
 
 
-# ----------------------------------------------------------------------- samples
 def build_samples(symbol: str, raw: dict) -> list[dict]:
     """One forecast start every STEP days, with features known on that day only."""
     dates = [date.fromisoformat(d) for d in raw["dates"]]
     c = np.array(raw["closes"], dtype=float)
     n = len(c)
-    # map each dividend's ex-date to the first trading day on/after it
     div_at: dict[int, float] = {}
     for d, amt in raw["dividends"]:
         idx = int(np.searchsorted(np.array(raw["dates"]), d))
@@ -107,7 +103,7 @@ def build_samples(symbol: str, raw: dict) -> list[dict]:
         future = np.diff(np.log(c[t: t + HORIZON + 1]))
         realized = float(np.std(future))
         if v_range is None or min(v5, v20, v60, realized) <= 0:
-            continue  # suspended / flat stretches carry no volatility information
+            continue
         r20 = abs(float(np.log(c[t] / c[t - 20])))
         samples.append({
             "symbol": symbol,
@@ -123,7 +119,6 @@ def build_samples(symbol: str, raw: dict) -> list[dict]:
     return samples
 
 
-# ------------------------------------------------------------------- simulation
 def simulate(s: dict, vol: float, seed: int, runs: int, agents: int, dividends: bool = True) -> dict:
     sim = run_simulation(s["price"], NEUTRAL, runs=runs, days=HORIZON, agents=agents, seed=seed,
                          daily_vol=vol, dividends=s["divs"] if dividends else None)
@@ -165,7 +160,7 @@ def main() -> None:
     for sym in tickers:
         try:
             samples += build_samples(sym, fetch(sym, start, end))
-        except Exception as exc:  # one bad ticker shouldn't stop the run
+        except Exception as exc:
             print(f"  ! skipped {sym}: {exc}")
     print(f"{len(samples)} candidate forecasts from {len(tickers)} stocks ({time.time() - t0:.0f}s)")
 
@@ -198,7 +193,6 @@ def main() -> None:
         print(f"  {yr}: {len(rows):5d} forecasts  inside P10-P90 {per_year[yr]['inside_p10_p90']:.1%}"
               f"  ({time.time() - t0:.0f}s)")
 
-    # ---------------------------------------------------------------- metrics
     a = np.array([r["actual"] for r in tested])
     p0 = np.array([r["price"] for r in tested])
     log_real = np.log([r["realized"] for r in tested])
@@ -206,7 +200,7 @@ def main() -> None:
     up_real = a > p0
     div_rows = [r for r in tested if r["divs"]]
 
-    def bias(rows, key):  # average (forecast median / real price - 1)
+    def bias(rows, key):
         return float(np.mean([r[key]["p50"] / r["actual"] - 1 for r in rows])) if rows else None
 
     results = {

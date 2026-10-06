@@ -31,12 +31,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.auth import _SECRET, _b64, _unb64
 from app.config import settings
 
-# Distinct signing key: admin tokens and user tokens are not interchangeable.
 _USER_KEY = hashlib.sha256(_SECRET + b"|user-tokens").digest()
 
 _bearer = HTTPBearer(auto_error=False, description="Token from POST /api/auth/login")
 
-# scrypt parameters (~16 MiB memory per hash).
 _SCRYPT_N, _SCRYPT_R, _SCRYPT_P = 2**14, 8, 1
 
 
@@ -45,12 +43,9 @@ class User:
     id: int
     username: str
     created_at: int
-    # Random UUID -- the key used for external data (Supabase history). Unlike
-    # `id`, it is never reused even if users.db is recreated.
     uid: str = ""
 
 
-# --- password hashing ------------------------------------------------------
 
 
 def hash_password(password: str, salt: bytes | None = None) -> str:
@@ -72,11 +67,9 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(expected, dk_b64)
 
 
-# Used to burn equal time when the username doesn't exist (no timing oracle).
 _DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
 
 
-# --- storage ---------------------------------------------------------------
 
 
 class UserStore:
@@ -91,7 +84,6 @@ class UserStore:
                    created_at    INTEGER NOT NULL
                )"""
         )
-        # Migration: older databases have no `uid` column -> add + backfill.
         cols = {r[1] for r in self._db.execute("PRAGMA table_info(users)")}
         if "uid" not in cols:
             self._db.execute("ALTER TABLE users ADD COLUMN uid TEXT")
@@ -140,7 +132,6 @@ class UserStore:
 user_store = UserStore(settings.users_db_path)
 
 
-# --- tokens ----------------------------------------------------------------
 
 
 def _sign(payload: str) -> str:

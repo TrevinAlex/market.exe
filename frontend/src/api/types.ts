@@ -1,5 +1,3 @@
-// Response shapes from the MARKET.EXE FastAPI backend (backend/app/api/schemas.py).
-// The frontend only displays these values; it never recomputes scores.
 
 export type Regime = 'Accumulation' | 'Recovery' | 'Distribution' | 'Stress';
 export type RegimeColor = 'green' | 'yellow' | 'amber' | 'red';
@@ -8,18 +6,17 @@ export type SubScoreKey = 'valuation' | 'momentum' | 'debt' | 'quality' | 'profi
 export type SubScores = Record<SubScoreKey, number>;
 
 export interface Score {
-  symbol: string; // "BBCA.JK" or "BBCA"
+  symbol: string;
   company_name: string;
   sector: string | null;
   sub_sector: string | null;
-  composite: number; // 0–100
+  composite: number;
   regime: Regime;
   color: RegimeColor;
-  sub_scores: SubScores; // each 0–20
-  sub_scores_normalized: Record<string, number>; // same keys, 0–1
-  confidence: number; // 0–1
-  last_close_price: number | null; // IDR
-  /** Raw input + scoring rule per sub-score ("Why this score"). Missing on older responses. */
+  sub_scores: SubScores;
+  sub_scores_normalized: Record<string, number>;
+  confidence: number;
+  last_close_price: number | null;
   breakdown?: Partial<Record<SubScoreKey, { input: string | null; rule: string }>> | null;
 }
 
@@ -31,9 +28,9 @@ export interface ScreenResponse {
 export interface SectorRegime {
   sector: string;
   total: number;
-  distribution: Record<string, number>; // regime label -> count
-  avg_score: number; // 0–100
-  stressed_pct: number; // % of stocks in Stress or Distribution (0–100)
+  distribution: Record<string, number>;
+  avg_score: number;
+  stressed_pct: number;
 }
 
 export interface HeatmapResponse {
@@ -59,9 +56,9 @@ export interface Bands {
 }
 
 export interface SimEvent {
-  day: number; // trading day inside the horizon (1 = next trading day)
-  type: string; // "dividend"
-  amount: number; // IDR per share
+  day: number;
+  type: string;
+  amount: number;
 }
 
 export interface SimulationResponse {
@@ -70,30 +67,30 @@ export interface SimulationResponse {
   horizon_days: number;
   runs: number;
   agents: number;
-  daily_vol?: number; // per trading day, 0.02 = 2%
-  vol_method?: string; // "ml" | "range" | "default"
+  daily_vol?: number;
+  vol_method?: string;
   events?: SimEvent[];
-  agent_mix: AgentMix; // fractions summing to 1
-  bands: Bands; // final-day prices
-  daily_bands?: Record<keyof Bands, number[]> | null; // per day 0..horizon
+  agent_mix: AgentMix;
+  bands: Bands;
+  daily_bands?: Record<keyof Bands, number[]> | null;
   expected_return_pct: number;
-  prob_price_up: number; // 0–1
-  sample_paths: number[][]; // each length days + 1
-  fundamentals?: FundamentalsYear[]; // yearly, oldest first
+  prob_price_up: number;
+  sample_paths: number[][];
+  fundamentals?: FundamentalsYear[];
   fundamentals_trend?: 'improving' | 'stable' | 'deteriorating' | null;
 }
 
 export interface FundamentalsYear {
   year: number;
-  roe: number | null; // 0.18 = 18%
+  roe: number | null;
   roa: number | null;
-  der: number | null; // debt / equity
+  der: number | null;
   pe: number | null;
-  valuation: number; // sub-scores 0-20
+  valuation: number;
   debt: number;
   quality: number;
   profitability: number;
-  score: number | null; // four fundamental sub-scores rescaled to 0-100
+  score: number | null;
 }
 
 export interface SimulateOptions {
@@ -101,21 +98,19 @@ export interface SimulateOptions {
   days?: number;
 }
 
-// --- user accounts (backend/app/users.py) ---
 export interface User {
   id: number;
   username: string;
-  created_at: number; // unix seconds
+  created_at: number;
 }
 
 export interface AuthResponse {
   access_token: string;
   token_type: 'bearer';
-  expires_in: number; // seconds
+  expires_in: number;
   user: User;
 }
 
-// --- user history (GET /api/history) ---
 export type HistoryKind = 'company' | 'simulation';
 
 export interface HistoryEntry {
@@ -133,7 +128,7 @@ export interface HistoryEntry {
     prob_price_up?: number;
     p50?: number;
   };
-  created_at: string; // ISO-8601
+  created_at: string;
 }
 
 export interface HistoryResponse {
@@ -141,11 +136,10 @@ export interface HistoryResponse {
   results: HistoryEntry[];
 }
 
-// --- pinned stocks (GET /api/pins) ---
 export interface Pin {
-  symbol: string; // bare ticker, e.g. "BBCA"
-  created_at: string; // ISO-8601
-  score: Score | null; // only with ?scores=true; null if unavailable
+  symbol: string;
+  created_at: string;
+  score: Score | null;
 }
 
 export interface PinsResponse {

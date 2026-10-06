@@ -51,8 +51,6 @@ from app.core.scoring import (  # noqa: E402  (the app's real scoring rules)
     score_valuation,
 )
 
-# Same 45 LQ45 stocks as run_backtest.py (copied so this script never imports the
-# Yahoo-based one).
 TICKERS = [
     "ACES", "ADMR", "ADRO", "AKRA", "AMMN", "AMRT", "ANTM", "ARTO", "ASII", "BBCA",
     "BBNI", "BBRI", "BBTN", "BMRI", "BRIS", "BRPT", "CPIN", "CTRA", "ESSA", "EXCL",
@@ -62,11 +60,10 @@ TICKERS = [
 ]
 
 CACHE = ROOT / "data" / "sectors_pages"
-CRAWL_DELAY = 3.0  # robots.txt asks for 2s; be a bit gentler
+CRAWL_DELAY = 3.0
 UA = "MARKET.EXE research backtest (hackathon project; one fetch per page, cached)"
 
 
-# --------------------------------------------------------------------------- fetch + parse
 
 def fetch_page(sym: str, client: httpx.Client) -> str | None:
     path = CACHE / f"{sym}.html"
@@ -147,7 +144,6 @@ def parse_company(sym: str, html: str) -> dict | None:
         eq, sh = num(f.get("total_equity")), num(f.get("outstanding_shares"))
         return eq / sh if eq is not None and sh else None
 
-    # Year-end price: P/E x EPS, else P/B x book value per share.
     price: dict[int, float] = {}
     check: list[float] = []
     for v in vals:
@@ -163,10 +159,9 @@ def parse_company(sym: str, html: str) -> dict | None:
     last_price = num(m_price.group(1)) if m_price else None
     last_date = date.fromisoformat(m_date.group(1)) if m_date else None
     this_year = last_date.year if last_date else date.today().year
-    # The current year's valuation row uses the latest close, not a year-end one.
     price.pop(this_year, None)
 
-    dividends = []  # (date, amount per share)
+    dividends = []
     for y, row in (divs or {}).items():
         for b in (row or {}).get("breakdown") or []:
             a = num(b.get("total"))
@@ -189,7 +184,6 @@ def parse_company(sym: str, html: str) -> dict | None:
     }
 
 
-# --------------------------------------------------------------------------- dataset
 
 def total_return(c: dict, start: date, end: date, p0: float, p1: float) -> float:
     """Price change plus dividends paid in (start, end], adjusted for splits."""
@@ -198,15 +192,14 @@ def total_return(c: dict, start: date, end: date, p0: float, p1: float) -> float
         if start < d <= end:
             split *= ratio
     divs = sum(a for d, a in c["dividends"] if start < d <= end)
-    # Dividend amounts are in post-split terms after a split; good enough at 1/yr.
     return (p1 * split + divs) / p0 - 1.0
 
 
 def build_rows(companies: list[dict]) -> list[dict]:
     rows = []
     for c in companies:
-        for t in sorted(c["price"]):            # formation at end of year t
-            fy = t - 1                           # latest annual report public by then
+        for t in sorted(c["price"]):
+            fy = t - 1
             r = c["ratio"].get(fy)
             e = c["eps"](fy)
             p0 = c["price"][t]
@@ -232,7 +225,7 @@ def build_rows(companies: list[dict]) -> list[dict]:
                 "profitability": score_profitability(feats),
             }
             known = sum(cf for _, cf in parts.values())
-            if known < 3:            # need at least 3 of the 4 inputs
+            if known < 3:
                 continue
             prev = c["price"].get(t - 1)
             rows.append({
@@ -248,7 +241,6 @@ def build_rows(companies: list[dict]) -> list[dict]:
     return rows
 
 
-# --------------------------------------------------------------------------- statistics
 
 def rank(xs):
     order = sorted(range(len(xs)), key=lambda i: xs[i])
@@ -323,7 +315,6 @@ def permutation_p(rows: list[dict], key: str, n: int = 5000, seed: int = 7) -> f
     return (hits + 1) / (n + 1)
 
 
-# --------------------------------------------------------------------------- main
 
 def main() -> None:
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -359,7 +350,6 @@ def main() -> None:
         print(f"  formed end-{y}: n={v['n']}, IC={v['ic']:+.3f}, "
               f"top third {v['top_third']:+.1%}, bottom third {v['bottom_third']:+.1%}")
 
-    # Regimes on the 4-part score.
     bands = [("70+", 70, 101), ("50-69", 50, 70), ("30-49", 30, 50), ("<30", 0, 30)]
     print("\nby score band (all years pooled):")
     regimes = {}

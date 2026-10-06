@@ -3,12 +3,9 @@ import { api, baseTicker, errorMessage } from '../api/client';
 import { useAuth } from './useAuth';
 
 export interface PinsState {
-  /** Pinned tickers in pin order (bare symbols, e.g. "BBCA"). */
   symbols: string[];
   isPinned: (symbol: string) => boolean;
-  /** Pin if not pinned, else unpin. Optimistic; rolls back on error. */
   toggle: (symbol: string) => Promise<void>;
-  /** False when logged out or pins can't be loaded (e.g. not configured). */
   available: boolean;
   maxPins: number;
   error: string | null;
@@ -17,7 +14,6 @@ export interface PinsState {
 
 const PinsContext = createContext<PinsState | null>(null);
 
-/** Loads the logged-in user's pins; must sit inside <AuthProvider>. */
 export function PinsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [symbols, setSymbols] = useState<string[]>([]);

@@ -2,7 +2,6 @@
 from app.core.scoring import score_company
 from app.core.simulation import run_simulation
 
-#fake data for example
 fake = {
     "symbol": "BBCA",
     "company_name": "PT Bank Central Asia Tbk.",
@@ -21,7 +20,6 @@ fake = {
     "roa_ttm": 0.035,
 }
 
-#contrast data
 stressed = {
     "symbol": "XXXX",
     "company_name": "PT Example Stressed Tbk.",

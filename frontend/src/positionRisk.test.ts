@@ -6,7 +6,7 @@ const bands = { p10: 9000, p25: 9500, p50: 10000, p75: 10500, p90: 11200 };
 describe('positionRisk', () => {
   it('scales the amount by each band', () => {
     const r = positionRisk(10_000_000, 10_000, bands)!;
-    expect(r.lots).toBe(10); // 10M / (10,000 × 100)
+    expect(r.lots).toBe(10);
     const [bad, mid, good] = r.outcomes;
     expect(bad).toMatchObject({ key: 'p10', value: 9_000_000, change: -1_000_000 });
     expect(bad.changePct).toBeCloseTo(-10);

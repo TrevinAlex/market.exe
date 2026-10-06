@@ -2,10 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { SimulateOptions, SimulationResponse } from '../api/types';
 
-/**
- * On-demand simulation (POST). Nothing runs until `run()` is called; state
- * resets whenever the symbol changes.
- */
 export function useSimulate(symbol: string | null, opts: SimulateOptions = { runs: 500, days: 30 }) {
   const [data, setData] = useState<SimulationResponse | null>(null);
   const [error, setError] = useState<unknown>(null);

@@ -28,11 +28,8 @@ from starlette.responses import JSONResponse, Response
 
 from app.config import settings
 
-# --- input validation -----------------------------------------------------
 
-# IDX tickers are 4 uppercase letters, optionally a .JK suffix we strip later.
 _SYMBOL_RE = re.compile(r"^[A-Za-z]{4}(\.JK)?$")
-# Index names like LQ45, IDX30, IDX80, KOMPAS100, JII70 -- letters + digits.
 _INDEX_RE = re.compile(r"^[A-Za-z0-9]{2,20}$")
 
 
@@ -66,7 +63,6 @@ def validate_index(index: str | None) -> str | None:
     return index
 
 
-# --- rate limiting ---------------------------------------------------------
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -83,14 +79,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._hits: dict[str, deque[float]] = defaultdict(deque)
 
     def _client_ip(self, request: Request) -> str:
-        # Honor X-Forwarded-For first hop when behind a proxy, else peer IP.
         fwd = request.headers.get("x-forwarded-for")
         if fwd:
             return fwd.split(",")[0].strip()
         return request.client.host if request.client else "unknown"
 
     async def dispatch(self, request: Request, call_next):
-        # Never rate-limit liveness / docs.
         if request.url.path in ("/health", "/docs", "/openapi.json", "/redoc"):
             return await call_next(request)
 
@@ -114,7 +108,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-# --- security headers ------------------------------------------------------
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -125,9 +118,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Referrer-Policy", "no-referrer")
-        # The JSON API never runs scripts, so lock it to 'none'. The /docs
-        # Swagger UI and its /static assets are a trusted local bundle that
-        # needs self-hosted script/style (plus inline style Swagger injects).
         path = request.url.path
         if path.startswith("/docs") or path.startswith("/static"):
             csp = (

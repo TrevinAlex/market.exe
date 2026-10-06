@@ -1,11 +1,5 @@
 import type { AgentKey, Regime, RegimeColor, SubScoreKey } from '../api/types';
 
-/**
- * Single source of truth for the palette. Mirrors CSS vars in index.css.
- * NAVY theme: key names are kept from the original neon palette so every
- * consumer keeps working; `cyan` is now teal (Accumulation / positive) and
- * `yellow` is now blue (Recovery).
- */
 export const palette = {
   bg: '#0a1020',
   panel: '#111b2e',
@@ -19,7 +13,6 @@ export const palette = {
   grey: '#5f7090',
 } as const;
 
-/** Backend `color` key -> neon hex. */
 export const REGIME_HEX: Record<RegimeColor, string> = {
   green: palette.cyan,
   yellow: palette.yellow,
@@ -31,7 +24,6 @@ export function colorHex(color: string | null | undefined): string {
   return REGIME_HEX[color as RegimeColor] ?? palette.grey;
 }
 
-/** Regime label -> backend color key (used where only labels are given, e.g. heatmap). */
 export const REGIME_COLOR_KEY: Record<Regime, RegimeColor> = {
   Accumulation: 'green',
   Recovery: 'yellow',
@@ -48,7 +40,6 @@ export const REGIME_MEANING: Record<Regime, string> = {
   Stress: 'Several red flags across debt, quality and momentum. High risk.',
 };
 
-/** Composite-score band for each regime (mirrors backend scoring thresholds). */
 export const REGIME_RANGE: Record<Regime, string> = {
   Accumulation: '70–100',
   Recovery: '50–69.9',
@@ -56,7 +47,6 @@ export const REGIME_RANGE: Record<Regime, string> = {
   Stress: '0–29.9',
 };
 
-/** Regime boundaries drawn as ticks on the HP bar (display only). */
 export const REGIME_TICKS = [30, 50, 70] as const;
 
 export const LOW_SIGNAL_THRESHOLD = 0.6;
@@ -118,7 +108,6 @@ export const AGENT_KEYS: AgentKey[] = [
   'passive_holders',
 ];
 
-/** Interpolate a thermal colour for a 0–100 score: red -> amber -> yellow -> cyan. */
 export function thermalColor(score: number): string {
   const stops: [number, string][] = [
     [0, palette.red],
@@ -146,7 +135,6 @@ function mixHex(a: string, b: string, t: number): string {
   return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
 }
 
-/** True when the sector is a financial/bank one (debt score is structurally low). */
 export function isFinancialSector(sector: string | null | undefined): boolean {
   return !!sector && /financ|bank/i.test(sector);
 }

@@ -7,10 +7,6 @@ export interface AsyncState<T> {
   reload: () => void;
 }
 
-/**
- * Run `fetcher` whenever `key` changes (null key = idle). Aborts stale
- * requests so a slow response can never overwrite a newer one.
- */
 export function useAsync<T>(key: string | null, fetcher: (signal: AbortSignal) => Promise<T>): AsyncState<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<unknown>(null);

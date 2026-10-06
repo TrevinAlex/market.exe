@@ -15,8 +15,8 @@ class SubScoresModel(BaseModel):
 
 
 class SubScoreExplainModel(BaseModel):
-    input: str | None = None  # raw value behind the sub-score, e.g. "ROE 18.0%"; None = no data
-    rule: str  # how that value maps to 0-20 points
+    input: str | None = None
+    rule: str
 
 
 class ScoreModel(BaseModel):
@@ -68,9 +68,9 @@ class BandsModel(BaseModel):
 
 
 class SimEvent(BaseModel):
-    day: int  # trading day inside the horizon (1 = next trading day)
-    type: str  # "dividend"
-    amount: float  # IDR per share
+    day: int
+    type: str
+    amount: float
 
 
 class FundamentalsYear(BaseModel):
@@ -79,11 +79,11 @@ class FundamentalsYear(BaseModel):
     roa: float | None
     der: float | None
     pe: float | None
-    valuation: float  # sub-scores 0-20, same rules as today's health score
+    valuation: float
     debt: float
     quality: float
     profitability: float
-    score: float | None  # the four sub-scores rescaled to 0-100 (no momentum)
+    score: float | None
 
 
 class SimulationResponse(BaseModel):
@@ -92,28 +92,27 @@ class SimulationResponse(BaseModel):
     horizon_days: int
     runs: int
     agents: int
-    daily_vol: float  # market-noise volatility used, per trading day (0.02 = 2%)
-    vol_method: str  # "ml" (90-day volatility model), "range" (52-week range) or "default"
-    drift_scale: float  # share of the agent mix's directional bias kept (0 = none)
-    events: list[SimEvent] = []  # known events inside the horizon (e.g. ex-dividend dates)
+    daily_vol: float
+    vol_method: str
+    drift_scale: float
+    events: list[SimEvent] = []
     agent_mix: AgentMixModel
     bands: BandsModel
-    daily_bands: dict[str, list[float]] | None = None  # p10..p90 for every day 0..horizon (fan chart)
+    daily_bands: dict[str, list[float]] | None = None
     expected_return_pct: float
     prob_price_up: float
     sample_paths: list[list[float]]
-    # Yearly fundamentals from the same Company Report (no extra credits).
     fundamentals: list[FundamentalsYear] = []
-    fundamentals_trend: str | None = None  # "improving" | "stable" | "deteriorating"
+    fundamentals_trend: str | None = None
 
 
 class HistoryEntry(BaseModel):
     id: int
-    kind: str  # "company" | "simulation"
+    kind: str
     symbol: str
     params: dict[str, Any]
     result: dict[str, Any]
-    created_at: str  # ISO-8601 timestamp from Postgres
+    created_at: str
 
 
 class HistoryResponse(BaseModel):
@@ -124,8 +123,8 @@ class HistoryResponse(BaseModel):
 
 class PinModel(BaseModel):
     symbol: str
-    created_at: str  # ISO-8601 timestamp from Postgres
-    score: ScoreModel | None = None  # only with ?scores=true; None if unavailable
+    created_at: str
+    score: ScoreModel | None = None
 
 
 class PinsResponse(BaseModel):

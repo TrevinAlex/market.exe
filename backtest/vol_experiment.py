@@ -40,7 +40,6 @@ from run_backtest import (  # noqa: E402
 )
 from app.core.simulation import MAX_DAILY_VOL, MIN_DAILY_VOL, estimate_daily_vol  # noqa: E402
 
-# IDX-IC sector as the Sectors company report names it (overview.sector).
 IDXIC = {
     **dict.fromkeys(["BBCA", "BBNI", "BBRI", "BBTN", "BMRI", "BRIS", "ARTO"], "Financials"),
     **dict.fromkeys(["ADRO", "ADMR", "AKRA", "ITMG", "MEDC", "PGAS", "PTBA"], "Energy"),
@@ -95,7 +94,6 @@ def design(rows: list[dict], variant: str) -> np.ndarray:
     X = [list(r["base"]) for r in rows]
     if variant in ("+sector", "+both"):
         for x, r in zip(X, rows):
-            # Financials is the reference sector (largest group).
             x += [1.0 if IDXIC[r["symbol"]] == s else 0.0 for s in SECTORS if s != "Financials"]
     if variant in ("+vol250", "+both"):
         for x, r in zip(X, rows):
@@ -157,7 +155,6 @@ def main() -> None:
         keep = ~np.isnan(pred)
         tested = [r for r, k in zip(rows, keep) if k]
         results[v] = score(tested, pred[keep])
-        # Final fit on everything (what the app would ship).
         beta, *_ = np.linalg.lstsq(X, y, rcond=None)
         coefs[v] = beta.tolist()
 

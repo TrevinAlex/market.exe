@@ -22,7 +22,6 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 
-# Broad IDX sector of each LQ45 stock (hand-assigned for grouping only).
 SECTOR = {
     **dict.fromkeys(["BBCA", "BBNI", "BBRI", "BBTN", "BMRI", "BRIS", "ARTO"], "Banks"),
     **dict.fromkeys(["ADRO", "ADMR", "ITMG", "PTBA", "MEDC", "ESSA", "PGAS", "AKRA"], "Energy"),
@@ -34,7 +33,7 @@ SECTOR = {
     **dict.fromkeys(["CTRA", "JSMR", "UNTR", "PGEO"], "Property, infra & industrials"),
 }
 
-MIN_N = 150   # smaller groups are reported but flagged
+MIN_N = 150
 
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -63,7 +62,6 @@ def stats(rows: list[dict]) -> dict:
         "inside_p25_p75": float(((a >= p["p25"]) & (a <= p["p75"])).mean()),
         "below_p10": float((a < p["p10"]).mean()),
         "above_p90": float((a > p["p90"]).mean()),
-        # >1 = the stock moved more than the model expected (range too narrow)
         "realized_over_predicted_vol": float(np.median(vol_ratio)),
     }
 
@@ -78,7 +76,6 @@ def table(title: str, groups: dict[str, list[dict]]) -> dict:
         s = stats(rows)
         out[name] = s
         flag = " *" if s["n"] < MIN_N else ""
-        # Flag only when even the (optimistic) 95% interval excludes 80%.
         off = s["ci95"][1] < 0.80 or s["ci95"][0] > 0.80
         mark = "  <-- off" if off and s["n"] >= MIN_N else ""
         print(f"  {name:<30}{s['n']:>6}{s['inside_p10_p90']:>9.1%}"
@@ -95,14 +92,12 @@ def main() -> None:
         r["year"] = r["start"][:4]
         r["sector"] = SECTOR.get(r["symbol"], "Other")
 
-    # Volatility level: quintiles of the model's own predicted daily vol.
     vols = np.array([r["vol_ml"] for r in rows])
     edges = np.quantile(vols, [0.2, 0.4, 0.6, 0.8])
     names = ["1 calmest", "2", "3", "4", "5 most volatile"]
     for r in rows:
         r["vol_q"] = names[int(np.searchsorted(edges, r["vol_ml"]))]
 
-    # Market stress: median predicted vol across all stocks on the same start date.
     by_date = defaultdict(list)
     for r in rows:
         by_date[r["start"]].append(r["vol_ml"])

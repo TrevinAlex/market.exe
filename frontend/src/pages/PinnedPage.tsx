@@ -8,15 +8,11 @@ import { usePins } from '../hooks/usePins';
 
 interface Props {
   onOpen: (symbol: string) => void;
-  /** Bumped by the parent so scores refresh when the tab is shown. */
   refreshKey: number;
 }
 
-/** The user's pinned stocks (watchlist) with live health scores. */
 export function PinnedPage({ onOpen, refreshKey }: Props) {
   const { symbols, maxPins, error: pinError, available } = usePins();
-  // Refetch when the tab is opened or the set of pins changes. Scores are
-  // cached server-side, so re-opening the tab doesn't re-spend credits.
   const key = available ? `${refreshKey}:${[...symbols].sort().join(',')}` : null;
   const res = useAsync<PinsResponse>(key, (signal) => api.pins(true, signal));
 
@@ -24,7 +20,6 @@ export function PinnedPage({ onOpen, refreshKey }: Props) {
     return pinError ? <ErrorAlert error={new Error(pinError)} /> : <Scanning label="LOADING PINS..." />;
   }
 
-  // Keep the order of the live pin list (so an unpin disappears instantly).
   const scored = new Map((res.data?.pins ?? []).map((p) => [p.symbol, p.score]));
   const visible = symbols.filter((s) => !res.data || scored.has(s));
 

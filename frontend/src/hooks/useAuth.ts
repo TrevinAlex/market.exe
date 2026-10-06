@@ -6,13 +6,12 @@ const STORAGE_KEY = 'market.exe.auth';
 
 interface StoredAuth {
   token: string;
-  expiresAt: number; // ms epoch
+  expiresAt: number;
 }
 
 export interface AuthState {
   user: User | null;
   token: string | null;
-  /** True while a stored token is being checked against /api/auth/me. */
   checking: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
@@ -48,7 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  // Restore the session on load: validate the stored token once.
   useEffect(() => {
     if (!stored || user) return;
     const ctrl = new AbortController();

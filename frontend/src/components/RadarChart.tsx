@@ -11,11 +11,10 @@ interface Props {
   size?: number;
 }
 
-/** Pentagon radar of the 5 normalised sub-scores (plain SVG). */
 export function RadarChart({ subScores, normalized, confidence, size = 260 }: Props) {
   const gradId = useId();
   const c = size / 2;
-  const r = size / 2 - 80; // leave room for the two-line labels
+  const r = size / 2 - 80;
   const n = SUB_SCORE_KEYS.length;
   const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
   const pt = (i: number, v: number) => [c + Math.cos(angle(i)) * r * v, c + Math.sin(angle(i)) * r * v] as const;
@@ -40,7 +39,6 @@ export function RadarChart({ subScores, normalized, confidence, size = 260 }: Pr
         </linearGradient>
       </defs>
 
-      {/* soft filled rings, outermost first so inner ones sit on top */}
       {[1, 0.75, 0.5, 0.25].map((v, idx) => (
         <polygon
           key={v}
@@ -58,7 +56,6 @@ export function RadarChart({ subScores, normalized, confidence, size = 260 }: Pr
         return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke="#ffffff" strokeOpacity={0.06} />;
       })}
 
-      {/* ring scale: 50 and 100 */}
       {[0.5, 1].map((v) => {
         const [, y] = pt(0, v);
         return (
@@ -105,8 +102,6 @@ export function RadarChart({ subScores, normalized, confidence, size = 260 }: Pr
   return (
     <div className="radar" style={{ maxWidth: size }}>
       {chart}
-      {/* Axis labels are HTML (not SVG text) so each name can carry the same
-          hover/focus explanation as the sub-score table. */}
       {SUB_SCORE_KEYS.map((k, i) => {
         const na = isNoData(k, subScores[k], confidence);
         const pct = Math.round(values[i] * 100);

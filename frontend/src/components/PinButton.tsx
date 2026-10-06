@@ -1,8 +1,6 @@
 import { baseTicker } from '../api/client';
 import { usePins } from '../hooks/usePins';
 
-/** ☆ / ★ toggle for a ticker. Renders nothing when pins are unavailable
- *  (logged out, or Supabase not configured). */
 export function PinButton({ symbol, size = 'sm' }: { symbol: string; size?: 'sm' | 'lg' }) {
   const { available, isPinned, toggle, symbols, maxPins } = usePins();
   if (!available) return null;
@@ -20,7 +18,7 @@ export function PinButton({ symbol, size = 'sm' }: { symbol: string; size?: 'sm'
       title={full ? `Pin limit reached (${maxPins})` : pinned ? 'Unpin' : 'Pin to your watchlist'}
       disabled={full}
       onClick={(e) => {
-        e.stopPropagation(); // don't open the row underneath
+        e.stopPropagation();
         void toggle(sym);
       }}
     >

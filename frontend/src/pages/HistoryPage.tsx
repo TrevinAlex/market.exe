@@ -17,13 +17,10 @@ const FILTERS: { id: HistoryKind | 'all'; label: string }[] = [
 const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 interface Props {
-  /** Open a ticker on the COMPANY tab. */
   onOpen: (symbol: string) => void;
-  /** Bumped by the parent so the list refetches when the tab is shown. */
   refreshKey: number;
 }
 
-/** The logged-in user's saved company lookups and simulations. */
 export function HistoryPage({ onOpen, refreshKey }: Props) {
   const [filter, setFilter] = useState<HistoryKind | 'all'>('all');
   const [offset, setOffset] = useState(0);

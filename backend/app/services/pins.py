@@ -65,7 +65,6 @@ class PinStore:
                 self._base,
                 params={"on_conflict": "user_uid,symbol"},
                 json={"user_uid": user_uid, "symbol": symbol},
-                # A concurrent duplicate pin is ignored instead of erroring.
                 headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
             )
             r.raise_for_status()

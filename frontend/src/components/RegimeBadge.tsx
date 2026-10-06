@@ -7,13 +7,11 @@ interface Props {
   regime: Regime | string;
   color: string;
   size?: 'sm' | 'lg';
-  /** Show a hover/focus pop-up explaining what this regime means. */
   explain?: boolean;
 }
 
 const isRegime = (r: string): r is Regime => (REGIMES as string[]).includes(r);
 
-/** Regime label pill, e.g. "Accumulation". Always text, never colour alone. */
 export function RegimeBadge({ regime, color, size = 'sm', explain = false }: Props) {
   const badge = (
     <span

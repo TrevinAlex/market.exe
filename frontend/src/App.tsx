@@ -15,19 +15,15 @@ const BASE_TABS: { id: Tab; label: string }[] = [
   { id: 'heatmap', label: 'Heatmap' },
   { id: 'company', label: 'Company' },
 ];
-// Only shown to logged-in users.
 const USER_TABS: { id: Tab; label: string }[] = [
   { id: 'pinned', label: '★ Pinned' },
   { id: 'history', label: 'History' },
 ];
-// Always last, pushed to the right end of the tab row (see .tab-right).
 const REPORT_TAB: { id: Tab; label: string } = { id: 'report', label: 'Report Card' };
 const USER_ONLY = new Set<Tab>(USER_TABS.map((t) => t.id));
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('screener');
-  // Pages mount on first visit and then stay mounted (hidden), so switching
-  // tabs keeps filters and doesn't re-spend API credits.
   const [visited, setVisited] = useState<Set<Tab>>(new Set(['screener']));
   const [symbol, setSymbol] = useState<string | null>(null);
   const [showAuth, setShowAuth] = useState(false);
@@ -44,7 +40,6 @@ export default function App() {
     history: null,
   });
 
-  // On logout, leave (and unmount) the user-only tabs.
   useEffect(() => {
     if (user) return;
     setTab((t) => (USER_ONLY.has(t) ? 'screener' : t));
@@ -57,7 +52,7 @@ export default function App() {
   const select = (t: Tab, focus = false) => {
     setTab(t);
     setVisited((v) => (v.has(t) ? v : new Set(v).add(t)));
-    if (t === 'history') setHistoryKey((k) => k + 1); // always show fresh entries
+    if (t === 'history') setHistoryKey((k) => k + 1);
     if (t === 'pinned') setPinnedKey((k) => k + 1);
     if (focus) tabRefs.current[t]?.focus();
   };
@@ -68,7 +63,6 @@ export default function App() {
     window.scrollTo({ top: 0 });
   };
 
-  // WAI-ARIA tabs pattern: arrows / Home / End move between tabs.
   const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const i = TABS.findIndex((t) => t.id === tab);
     let next: number | null = null;
@@ -158,7 +152,6 @@ export default function App() {
   );
 }
 
-/** Header area: "LOGIN" when signed out, username + logout when signed in. */
 function UserMenu({ onLogin }: { onLogin: () => void }) {
   const { user, checking, logout } = useAuth();
   if (checking) return <span className="mono dim user-menu">…</span>;

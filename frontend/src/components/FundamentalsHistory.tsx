@@ -2,7 +2,6 @@ import type { FundamentalsYear } from '../api/types';
 import { palette } from '../theme/tokens';
 import { Tip } from './Tip';
 
-/** Same bands as the health-score regimes (70 / 50 / 30). */
 export function scoreColor(score: number | null): string {
   if (score == null) return palette.grey;
   if (score >= 70) return palette.cyan;
@@ -25,11 +24,6 @@ interface Props {
   trend?: string | null;
 }
 
-/**
- * Yearly fundamentals from the Sectors Company Report, scored with today's
- * rules. Descriptive only: it shows whether the company's numbers have been
- * getting stronger or weaker, not where the price is going.
- */
 export function FundamentalsHistory({ years, trend }: Props) {
   if (years.length === 0) return null;
   const t = trend ? TREND_TEXT[trend] : undefined;

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ApiError, errorMessage } from '../api/client';
 
-/** Terminal-style loading line: "> SCANNING..█" */
 export function Scanning({ label = 'SCANNING...' }: { label?: string }) {
   return (
     <p className="terminal-line" role="status" aria-live="polite">
@@ -11,7 +10,6 @@ export function Scanning({ label = 'SCANNING...' }: { label?: string }) {
   );
 }
 
-/** Red HUD alert. For 429s it counts down the Retry-After window before enabling retry. */
 export function ErrorAlert({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const retryAfter = error instanceof ApiError && error.status === 429 ? error.retryAfter : null;
   const [left, setLeft] = useState<number | null>(retryAfter);

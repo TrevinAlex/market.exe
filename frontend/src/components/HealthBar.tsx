@@ -2,20 +2,14 @@ import type { Regime } from '../api/types';
 import { LOW_SIGNAL_THRESHOLD, REGIME_COLOR_KEY, REGIME_TICKS, colorHex } from '../theme/tokens';
 
 interface Props {
-  score: number; // composite 0–100 (from backend)
+  score: number;
   regime: Regime | string;
-  confidence: number; // 0–1
-  /** Backend color key; falls back to the regime's key when omitted. */
+  confidence: number;
   color?: string;
   size?: 'sm' | 'lg';
-  /** Show numeric labels under the 30/50/70 ticks (used on the large bar). */
   showTickLabels?: boolean;
 }
 
-/**
- * Signature HP bar. Fill width = composite, colour = regime, opacity tracks
- * data confidence. Ticks mark the regime boundaries at 30 / 50 / 70.
- */
 export function HealthBar({
   score,
   regime,
@@ -28,7 +22,6 @@ export function HealthBar({
   const hex = colorHex(color ?? REGIME_COLOR_KEY[regime as Regime]);
   const critical = pct < 30;
   const lowSignal = confidence < LOW_SIGNAL_THRESHOLD;
-  // Keep the bar legible even at zero confidence.
   const fillOpacity = 0.4 + 0.6 * Math.max(0, Math.min(1, confidence));
 
   const classes = ['hp', size === 'lg' ? 'lg' : '', critical ? 'critical' : ''].join(' ').trim();

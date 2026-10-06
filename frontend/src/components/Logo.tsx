@@ -1,21 +1,8 @@
 import { useId } from 'react';
 
-/**
- * MKT mark: italic outlined block letters inside a slanted frame, in the navy
- * theme's blue → violet gradient. Decorative; the visible "MARKET.EXE" text
- * next to it carries the name for assistive tech.
- *
- * The letters are drawn as closed shapes (not thick strokes), so sharp
- * corners such as the peaks of the M stay crisp and are never clipped.
- * Grid: letters are 26 units tall (y 23–49), stems 6 units thick, 6 units
- * apart, centred in the frame and slanted to the frame's own angle.
- */
 const LETTERS = [
-  // M
   '20,49 20,23 26,23 31,33 36,23 42,23 42,49 36.5,49 36.5,34 31,44 25.5,34 25.5,49',
-  // K
   '48,49 48,23 54,23 54,33 60,23 67,23 58,36 67,49 60,49 54,39.5 54,49',
-  // T
   '72,23 94,23 94,29 86,29 86,49 80,49 80,29 72,29',
 ];
 
@@ -38,7 +25,6 @@ export function Logo({ width = 60, className = '' }: { width?: number; className
         </linearGradient>
       </defs>
 
-      {/* slanted frame */}
       <polygon
         points="18,6 116,6 102,66 4,66"
         fill="none"
@@ -47,7 +33,6 @@ export function Logo({ width = 60, className = '' }: { width?: number; className
         strokeLinejoin="round"
       />
 
-      {/* skew = frame slope (14/60), shifted so the word sits in the frame's centre */}
       <g transform="translate(11.4 0) skewX(-13.13)">
         {LETTERS.map((points) => (
           <polygon

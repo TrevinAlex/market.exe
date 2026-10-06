@@ -10,7 +10,6 @@ interface Props {
   sector: string | null;
 }
 
-/** Row of five ●●●○○ meters, one per dimension, each with a hover/focus tooltip. */
 export function SubScoreDots({ subScores, normalized, confidence, sector }: Props) {
   return (
     <div className="dots-group" role="list" aria-label="Sub-scores">
@@ -58,7 +57,6 @@ function DotMeter({ dim, value, norm, noData, bankNote }: DotProps) {
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
       onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-      // Tooltip interaction should not trigger the parent row's click.
       onClick={(e) => e.stopPropagation()}
     >
       <span className="dots-label" aria-hidden="true">

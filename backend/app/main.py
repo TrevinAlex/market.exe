@@ -79,11 +79,10 @@ app = FastAPI(
     title="MARKET.EXE",
     description="IDX stock health regime scanner + agent-based scenario simulator.",
     version="0.1.0",
-    docs_url=None,   # disable the CDN-backed default; served locally below
+    docs_url=None,
     redoc_url=None,
 )
 
-# Serve Swagger UI assets locally (no CDN dependency — works offline).
 _STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
@@ -108,7 +107,6 @@ async def custom_swagger_ui_html() -> HTMLResponse:
     """Swagger UI from local assets only — no CDN, no inline script (CSP-safe)."""
     return HTMLResponse(_DOCS_HTML)
 
-# --- security middleware (order: added last runs first) -------------------
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     RateLimitMiddleware,
@@ -116,7 +114,6 @@ app.add_middleware(
     window_seconds=settings.rate_limit_window_seconds,
 )
 
-# CORS restricted to configured origins (set ALLOWED_ORIGINS in .env).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins_list,
@@ -180,11 +177,9 @@ async def admin_login(body: LoginRequest, request: Request) -> LoginResponse:
     return LoginResponse(access_token=token, expires_in=ttl)
 
 
-# --- user accounts ----------------------------------------------------------
 
 
 class UserCredentials(BaseModel):
-    # Letters, digits, underscore; 3-32 chars. Case-insensitive uniqueness.
     username: str = Field(min_length=3, max_length=32, pattern=r"^[A-Za-z0-9_]+$")
     password: str = Field(min_length=8, max_length=128)
 
@@ -235,17 +230,11 @@ async def user_me(user: User = Depends(require_user)) -> UserModel:
     return UserModel(id=user.id, username=user.username, created_at=user.created_at)
 
 
-# Attach to any route that should need a logged-in user:
-#   @app.get(..., dependencies=user_only)
 user_only = [Depends(require_user)]
 
-# Attach to any future admin/edit route: @app.post(..., dependencies=admin_only)
-# Data routes below are public -- anyone can view without logging in.
 admin_only = [Depends(require_admin)]
 
 
-# Server-side log of upstream failures. The HTTP response stays generic (no
-# upstream details leak to users); this line only shows in the backend terminal.
 _log = logging.getLogger("uvicorn.error")
 
 
@@ -290,8 +279,6 @@ async def screen(
 ) -> ScreenResponse:
     """Fetch companies, score every one, and return them ranked by health score."""
     index = validate_index(index)
-    # Only a validated index token is interpolated into the upstream filter;
-    # arbitrary client-supplied `where` clauses are no longer accepted.
     effective_where = f"indices in ['{index}']" if index else "market_cap IS NOT NULL"
 
     raw = await _safe_screen(effective_where, limit, offset)
@@ -367,7 +354,7 @@ async def heatmap(
                 stressed_pct=round(stressed / total * 100, 1),
             )
         )
-    sectors.sort(key=lambda x: x.avg_score)  # most stressed sectors first
+    sectors.sort(key=lambda x: x.avg_score)
     return HeatmapResponse(sectors=sectors)
 
 
@@ -394,9 +381,6 @@ async def simulate(
     flat = flatten_report(report)
     result = score_company(flat)
 
-    # Extra inputs for the simulation (1 credit each, cached). Either may fail
-    # without breaking the simulation: it falls back to the 52-week range vol
-    # and no dividend events.
     closes_res, actions_res = await asyncio.gather(
         sectors_client.daily_closes(symbol),
         sectors_client.corporate_actions(symbol),
@@ -433,7 +417,6 @@ async def simulate(
                 "p50": sim["bands"]["p50"],
             },
         )
-    # Yearly health history from the report we already fetched -- no extra credits.
     fund = fundamentals_history(report)
     return SimulationResponse(
         symbol=result.symbol,
@@ -443,7 +426,6 @@ async def simulate(
     )
 
 
-# --- user history (Supabase) -------------------------------------------------
 
 
 def _ticker(symbol: str) -> str:
@@ -493,7 +475,6 @@ async def history_delete(entry_id: int, user: User = Depends(require_user)) -> d
     return {"deleted": n}
 
 
-# --- pinned stocks / watchlist (Supabase) -------------------------------------
 
 
 def _require_pins() -> None:
@@ -524,7 +505,7 @@ async def pins_list(
     rows = await _supabase_call(pin_store.list(user.uid))
     pins = [PinModel(**r) for r in rows]
     if scores and pins:
-        sem = asyncio.Semaphore(5)  # don't hammer the Sectors API
+        sem = asyncio.Semaphore(5)
 
         async def bounded(sym: str):
             async with sem:

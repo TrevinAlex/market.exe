@@ -15,7 +15,6 @@ from app.core.simulation import (
 
 GOOD = {"momentum": 1.0, "debt": 1.0, "valuation": 1.0, "quality": 1.0, "profitability": 1.0}
 
-# 1. Volatility model: ml with enough closes, range without, default with nothing.
 rng = np.random.default_rng(0)
 calm = list(6000 * np.exp(np.cumsum(rng.normal(0, 0.01, 60))))
 wild = list(6000 * np.exp(np.cumsum(rng.normal(0, 0.04, 60))))
@@ -27,42 +26,36 @@ v, m = predict_daily_vol(calm[:10], 7000, 5500)
 assert m == "range" and v > 0
 assert predict_daily_vol(None, None, None) == (None, "default")
 
-# 2. Drift removed by default: strong scores no longer push the median up.
 base = run_simulation(1000, GOOD, runs=2000, seed=1, daily_vol=0.015)
 biased = run_simulation(1000, GOOD, runs=2000, seed=1, daily_vol=0.015, drift_scale=1.0)
 assert abs(base["bands"]["p50"] / 1000 - 1) < 0.01, base["bands"]
 assert biased["bands"]["p50"] > base["bands"]["p50"] * 1.03, (biased["bands"], base["bands"])
 assert 0.45 < base["prob_price_up"] < 0.55
 
-# 3. A known dividend lowers the whole distribution by about its amount.
 div = run_simulation(1000, GOOD, runs=2000, seed=1, daily_vol=0.015, dividends=[(10, 50)])
 shift = base["bands"]["p50"] - div["bands"]["p50"]
 assert 40 < shift < 60, shift
 assert div["events"] == [{"day": 10, "type": "dividend", "amount": 50.0}]
-# outside the horizon / bad values are ignored
 assert run_simulation(1000, GOOD, runs=50, seed=1, dividends=[(31, 50), (5, 0)])["events"] == []
 
-# 3b. Per-day bands for the fan chart: one value per day, ordered, ending at the final bands.
 db = base["daily_bands"]
 assert all(len(db[k]) == 31 for k in ("p10", "p25", "p50", "p75", "p90"))
 assert db["p10"][0] == db["p90"][0] == 1000
 assert all(db["p10"][d] <= db["p50"][d] <= db["p90"][d] for d in range(31))
 assert db["p90"][30] == base["bands"]["p90"] and db["p10"][30] == base["bands"]["p10"]
 
-# 3c. Score breakdown: raw input + rule per sub-score, None when the input is missing.
 from app.core.scoring import score_company  # noqa: E402
 bd = score_company({"symbol": "X", "roe_ttm": 0.18, "pe_ttm": None}).breakdown
 assert bd["quality"]["input"] == "ROE 18.0%" and "25%" in bd["quality"]["rule"]
 assert bd["valuation"]["input"] is None and bd["momentum"]["input"] is None
 
-# 4. Parsing Sectors corporate actions.
-today = date(2026, 10, 5)  # a Monday
+today = date(2026, 10, 5)
 ca = {
     "upcoming_dividend": {"ex_date": "2026-10-09", "dividend_amount": 55},
     "dividend": [
-        {"ex_date": "2026-10-09", "dividend_amount": 55},   # duplicate of upcoming
-        {"ex_date": "2025-12-03", "dividend_amount": 40},   # past
-        {"ex_date": "2027-03-01", "dividend_amount": 60},   # beyond 30 trading days
+        {"ex_date": "2026-10-09", "dividend_amount": 55},
+        {"ex_date": "2025-12-03", "dividend_amount": 40},
+        {"ex_date": "2027-03-01", "dividend_amount": 60},
         {"ex_date": "bad", "dividend_amount": 1},
     ],
 }
@@ -70,7 +63,6 @@ assert upcoming_dividends(ca, 30, today) == [(5, 55.0)], upcoming_dividends(ca, 
 assert upcoming_dividends(None, 30, today) == []
 assert upcoming_dividends({"upcoming_dividend": None, "dividend": None}, 30, today) == []
 
-# 5. Route: uses all three sources, and survives when the extra two fail.
 REPORT = {"symbol": "BBCA.JK", "company_name": "Bank Central Asia",
           "overview": {"last_close_price": 6100, "52_w_high": {"d": 10000}, "52_w_low": {"d": 7000}},
           "valuation": {"forward_pe": 15},
@@ -110,7 +102,6 @@ assert j["vol_method"] == "range" and j["events"] == [], j
 
 print("OK -- simulation: ML vol, drift removed, dividends applied and parsed, route fail-soft.")
 
-# 6. Yearly fundamentals history from the same report (no extra API calls).
 from app.core.scoring import fundamentals_history
 
 hist_report = {
@@ -124,12 +115,12 @@ hist_report = {
 }
 fh = fundamentals_history(hist_report)
 assert [y["year"] for y in fh["years"]] == [2021, 2022, 2023], fh
-assert fh["years"][0]["score"] == 100.0, fh["years"][0]          # perfect on all four
-assert fh["years"][1]["pe"] is None and fh["years"][1]["valuation"] == 10.0  # missing P/E -> neutral
+assert fh["years"][0]["score"] == 100.0, fh["years"][0]
+assert fh["years"][1]["pe"] is None and fh["years"][1]["valuation"] == 10.0
 assert fh["trend"] == "deteriorating", fh
 assert fundamentals_history({}) == {"years": [], "trend": None}
 
-main.sectors_client.company_report = report  # REPORT has no year field -> skipped, not crashed
+main.sectors_client.company_report = report
 r = client.post("/api/simulate/BBCA?runs=200")
 assert r.status_code == 200 and r.json()["fundamentals"] == [], r.text
 

@@ -1,9 +1,3 @@
--- MARKET.EXE -- user activity history.
--- Run once in Supabase: Dashboard -> SQL Editor -> paste -> Run.
---
--- Users live in the backend (app/users.py); `user_uid` is their stable UUID.
--- Only the backend talks to this table, using the service_role key. RLS is
--- enabled with NO policies, so the public anon key cannot read or write it.
 
 create table if not exists public.user_history (
     id          bigint generated always as identity primary key,
@@ -20,13 +14,8 @@ create index if not exists user_history_user_created_idx
 
 alter table public.user_history enable row level security;
 
--- Defense in depth: strip direct table access from the client-facing roles.
 revoke all on table public.user_history from anon, authenticated;
 
--- ---------------------------------------------------------------------------
--- Pinned stocks (watchlist). One row per (user, symbol).
--- Safe to re-run: everything is "if not exists".
--- ---------------------------------------------------------------------------
 create table if not exists public.user_pins (
     user_uid    uuid        not null,
     symbol      text        not null check (symbol ~ '^[A-Z]{4}$'),

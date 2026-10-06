@@ -11,13 +11,11 @@ import type {
   SimulationResponse,
 } from './types';
 
-/** Base path. In dev, Vite proxies /api to http://127.0.0.1:8000. */
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? '';
 
 const TICKER_RE = /^[A-Za-z]{4}$/;
 const INDEX_RE = /^[A-Za-z0-9]{2,20}$/;
 
-/** Error carrying the HTTP status and a user-facing message. */
 export class ApiError extends Error {
   readonly status: number;
   readonly retryAfter: number | null;
@@ -30,13 +28,11 @@ export class ApiError extends Error {
   }
 }
 
-/** Validate + normalise a ticker. Returns the uppercased symbol or null. */
 export function normalizeTicker(input: string): string | null {
   const t = input.trim();
   return TICKER_RE.test(t) ? t.toUpperCase() : null;
 }
 
-/** Strip the ".JK" exchange suffix the screener sometimes returns. */
 export function baseTicker(symbol: string): string {
   return symbol.replace(/\.JK$/i, '').toUpperCase();
 }
@@ -50,18 +46,15 @@ function parseRetryAfter(header: string | null): number | null {
   return null;
 }
 
-/** Turn a non-OK response into a user-facing ApiError. */
 export async function toApiError(res: Response): Promise<ApiError> {
   let detail: string | null = null;
   try {
     const body: unknown = await res.json();
     if (body && typeof body === 'object' && 'detail' in body) {
       const d = (body as { detail: unknown }).detail;
-      // FastAPI validation errors (422) return an array of objects.
       detail = typeof d === 'string' ? d : JSON.stringify(d);
     }
   } catch {
-    /* body was not JSON */
   }
 
   if (res.status === 429) {
@@ -76,8 +69,6 @@ export async function toApiError(res: Response): Promise<ApiError> {
   return new ApiError(detail ?? `Request failed (HTTP ${res.status})`, res.status);
 }
 
-/** Bearer token of the logged-in user (set by AuthProvider). Sent on every
- *  request so the backend can record history; anonymous when null. */
 let authToken: string | null = null;
 export function setAuthToken(token: string | null): void {
   authToken = token;
@@ -183,7 +174,6 @@ function jsonPost(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
 }
 
-/** Client-side mirror of the backend rules in app/main.py (UserCredentials). */
 export const USERNAME_RE = /^[A-Za-z0-9_]{3,32}$/;
 export const PASSWORD_MIN = 8;
 export const PASSWORD_MAX = 128;

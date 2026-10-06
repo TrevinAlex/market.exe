@@ -1,13 +1,3 @@
-/**
- * Content for the REPORT CARD tab: how well the model holds up against real
- * prices, and a glossary of every technical term the app shows.
- *
- * Backtest numbers come from backtest/run_backtest.py (re-run 2026-10-06:
- * 45 LQ45 stocks, Yahoo Finance daily prices, a forecast every 5 trading days
- * 2019-2026, models trained only on earlier data) plus
- * backtest/calibration_breakdown.py and backtest/vol_experiment.py. Update them
- * here if the model changes and the backtest is re-run.
- */
 import type { Regime } from '../api/types';
 import { REGIMES, REGIME_MEANING, REGIME_RANGE, SUB_SCORE_META } from '../theme/tokens';
 
@@ -18,7 +8,7 @@ export interface ReportRow {
   result: string;
   target: string;
   grade: Grade;
-  label?: string; // overrides the default badge text for this grade
+  label?: string;
   meaning: string;
 }
 
@@ -347,7 +337,6 @@ export const GLOSSARY: GlossaryGroup[] = [
   },
 ];
 
-/** Case-insensitive search over term, alias and text. */
 export function filterGlossary(groups: GlossaryGroup[], query: string): GlossaryGroup[] {
   const q = query.trim().toLowerCase();
   if (!q) return groups;

@@ -66,8 +66,6 @@ export function CompanyPage({ symbol, onSymbol }: Props) {
   );
 }
 
-// Same index + limit as the Screener, so the backend answers from its 15-minute
-// cache and the suggestion list costs no extra Sectors credit.
 const SUGGEST_INDEX = 'LQ45';
 const SUGGEST_LIMIT = 50;
 const SUGGEST_MAX = 8;
@@ -77,7 +75,6 @@ function TickerSearch({ current, onSubmit }: { current: string | null; onSubmit:
   const [invalid, setInvalid] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  // The list is fetched only after the first focus, never on page load.
   const [wantList, setWantList] = useState(false);
   const inputId = useId();
   const errId = useId();
@@ -92,9 +89,6 @@ function TickerSearch({ current, onSubmit }: { current: string | null; onSubmit:
     const all = [...(list.data?.results ?? [])].sort((a, b) => baseTicker(a.symbol).localeCompare(baseTicker(b.symbol)));
     if (!q) return all.slice(0, SUGGEST_MAX);
 
-    // Ticker-prefix matches always come first. Company names only match on the
-    // START of a word, ignoring "PT" / "Tbk" — otherwise "B" would hit every
-    // name through "Tbk" and A-tickers would fill the list.
     const nameWords = (name: string) =>
       name
         .toUpperCase()
@@ -201,7 +195,6 @@ function TickerSearch({ current, onSubmit }: { current: string | null; onSubmit:
                 role="option"
                 aria-selected={i === active}
                 className="ticker-option"
-                // mousedown keeps focus in the input so blur does not close the list first
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(sym)}

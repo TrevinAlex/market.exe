@@ -1,8 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
-// The FastAPI backend runs on :8000. Proxying /api keeps the browser on a
-// single origin in dev, so CORS never comes into play.
 const apiProxy = {
   '/api': {
     target: 'http://127.0.0.1:8000',

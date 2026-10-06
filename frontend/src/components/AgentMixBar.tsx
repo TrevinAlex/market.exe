@@ -2,7 +2,6 @@ import type { AgentMix } from '../api/types';
 import { AGENT_KEYS, AGENT_META } from '../theme/tokens';
 import { formatPct01 } from '../theme/format';
 
-/** Stacked bar + roster of the 5 agent archetypes (fractions from the backend). */
 export function AgentMixBar({ mix, agents }: { mix: AgentMix; agents?: number }) {
   return (
     <div>
