@@ -79,6 +79,21 @@ export interface SimulationResponse {
   expected_return_pct: number;
   prob_price_up: number; // 0–1
   sample_paths: number[][]; // each length days + 1
+  fundamentals?: FundamentalsYear[]; // yearly, oldest first
+  fundamentals_trend?: 'improving' | 'stable' | 'deteriorating' | null;
+}
+
+export interface FundamentalsYear {
+  year: number;
+  roe: number | null; // 0.18 = 18%
+  roa: number | null;
+  der: number | null; // debt / equity
+  pe: number | null;
+  valuation: number; // sub-scores 0-20
+  debt: number;
+  quality: number;
+  profitability: number;
+  score: number | null; // four fundamental sub-scores rescaled to 0-100
 }
 
 export interface SimulateOptions {

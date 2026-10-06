@@ -109,3 +109,28 @@ j = r.json()
 assert j["vol_method"] == "range" and j["events"] == [], j
 
 print("OK -- simulation: ML vol, drift removed, dividends applied and parsed, route fail-soft.")
+
+# 6. Yearly fundamentals history from the same report (no extra API calls).
+from app.core.scoring import fundamentals_history
+
+hist_report = {
+    "financials": {"historical_financial_ratio": [
+        {"year": "2021", "profitability": {"roe": .25, "roa": .15}, "leverage": {"debt_to_equity_ratio": 0}},
+        {"year": "2022", "profitability": {"roe": .20, "roa": .10}, "leverage": {"debt_to_equity_ratio": .5}},
+        {"year": "2023", "profitability": {"roe": .05, "roa": .02}, "leverage": {"debt_to_equity_ratio": 2.0}},
+        {"year": "bad"},
+    ]},
+    "valuation": {"historical_valuation": [{"year": 2021, "pe": 5}, {"year": 2023, "pe": 30}]},
+}
+fh = fundamentals_history(hist_report)
+assert [y["year"] for y in fh["years"]] == [2021, 2022, 2023], fh
+assert fh["years"][0]["score"] == 100.0, fh["years"][0]          # perfect on all four
+assert fh["years"][1]["pe"] is None and fh["years"][1]["valuation"] == 10.0  # missing P/E -> neutral
+assert fh["trend"] == "deteriorating", fh
+assert fundamentals_history({}) == {"years": [], "trend": None}
+
+main.sectors_client.company_report = report  # REPORT has no year field -> skipped, not crashed
+r = client.post("/api/simulate/BBCA?runs=200")
+assert r.status_code == 200 and r.json()["fundamentals"] == [], r.text
+
+print("OK -- fundamentals history: yearly scores, missing data neutral, trend, route field.")

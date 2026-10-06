@@ -152,6 +152,8 @@ def main() -> None:
     ap.add_argument("--runs", type=int, default=400, help="simulated runs per forecast")
     ap.add_argument("--agents", type=int, default=100,
                     help="agents per run (drift is off, so agent count barely changes the bands; the app uses 1000)")
+    ap.add_argument("--dump", metavar="PATH",
+                    help="also write every tested forecast to PATH (JSON) for calibration_breakdown.py")
     args = ap.parse_args()
     if args.quick:
         args.runs = min(args.runs, 200)
@@ -233,6 +235,15 @@ def main() -> None:
 
     out = HERE / ("results_quick.json" if args.quick else "results.json")
     out.write_text(json.dumps(results, indent=2))
+
+    if args.dump:
+        dump = [{
+            "symbol": r["symbol"], "start": r["start"].isoformat(), "price": r["price"], "actual": r["actual"],
+            "vol_ml": r["vol_ml"], "realized": r["realized"], "has_div": bool(r["divs"]),
+            **{p: r["ml"][p] for p in ("p10", "p25", "p50", "p75", "p90")},
+        } for r in tested]
+        Path(args.dump).write_text(json.dumps(dump))
+        print(f"wrote {len(dump)} forecasts to {args.dump}")
 
     rc, vc, dv, di = (results[k] for k in ("range_calibration", "volatility_correlation", "dividends", "direction"))
     print("\n=== MARKET.EXE report card ===")

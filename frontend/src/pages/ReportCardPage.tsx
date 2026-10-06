@@ -49,7 +49,7 @@ export function ReportCardPage() {
                   <td className="mono rc-num">{r.result}</td>
                   <td className="mono dim rc-num">{r.target}</td>
                   <td>
-                    <span className={`rc-grade rc-${r.grade}`}>{GRADE_LABEL[r.grade]}</span>
+                    <span className={`rc-grade rc-${r.grade}`}>{r.label ?? GRADE_LABEL[r.grade]}</span>
                   </td>
                   <td className="rc-meaning">{r.meaning}</td>
                 </tr>

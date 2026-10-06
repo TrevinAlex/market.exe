@@ -102,8 +102,10 @@ def estimate_daily_vol(high_52w: float | None, low_52w: float | None) -> float |
 # Volatility model fitted by walk-forward backtest (45 LQ45 stocks, 2017-2026,
 # Yahoo Finance history). Predicts log(daily vol over the next 30 trading days)
 # from the 52-week range estimate and recent realised volatility. Out of
-# sample it put 80.3% of real outcomes inside the 80% band, vs 76.5% for the
-# range estimate alone. Inputs need ~60 trading days of closes (the Sectors
+# sample (backtest/run_backtest.py, 15,426 forecasts) it put 79.5% of real
+# outcomes inside the 80% band, vs 76.2% for the range estimate alone. 1-year
+# vol and sector inputs were tested and rejected (backtest/vol_experiment.py).
+# Inputs need ~60 trading days of closes (the Sectors
 # daily endpoint returns 90 calendar days for 1 credit).
 # ---------------------------------------------------------------------------
 _VOL_MODEL = {

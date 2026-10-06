@@ -3,6 +3,7 @@ import { baseTicker, normalizeTicker } from '../api/client';
 import type { Regime, Score, SimulationResponse } from '../api/types';
 import { AgentMixBar } from '../components/AgentMixBar';
 import { FanChart } from '../components/FanChart';
+import { FundamentalsHistory } from '../components/FundamentalsHistory';
 import { HealthBar } from '../components/HealthBar';
 import { PinButton } from '../components/PinButton';
 import { RadarChart } from '../components/RadarChart';
@@ -289,6 +290,8 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
       </dl>
 
       <PositionRiskCalc sim={sim} />
+
+      <FundamentalsHistory years={sim.fundamentals ?? []} trend={sim.fundamentals_trend} />
 
       <div>
         <h3 className="panel-title">

@@ -244,6 +244,82 @@ class ScoreResult:
         return d
 
 
+def _year(value: Any) -> int | None:
+    try:
+        return int(str(value)[:4])
+    except (TypeError, ValueError):
+        return None
+
+
+def fundamentals_history(report: dict[str, Any], max_years: int = 8) -> dict[str, Any]:
+    """Yearly fundamentals and the four fundamental sub-scores, per fiscal year.
+
+    Uses data already inside the Company Report (financials.historical_financial_ratio
+    and valuation.historical_valuation), so it costs no extra API credits. Momentum
+    is left out: it needs a past price range, which the report doesn't carry per year.
+
+    The score is the four sub-scores rescaled to 0-100. It DESCRIBES how the
+    company's numbers have moved; it is not a forecast (see the report card).
+    """
+    financials = report.get("financials") or {}
+    valuation = report.get("valuation") or {}
+
+    pe_by_year: dict[int, float | None] = {}
+    for row in valuation.get("historical_valuation") or []:
+        y = _year(row.get("year")) if isinstance(row, dict) else None
+        if y is not None:
+            pe_by_year[y] = _num(row.get("pe"))
+
+    by_year: dict[int, dict[str, Any]] = {}
+    for row in financials.get("historical_financial_ratio") or []:
+        y = _year(row.get("year")) if isinstance(row, dict) else None
+        if y is None:
+            continue
+        prof = row.get("profitability") or {}
+        lev = row.get("leverage") or {}
+        by_year[y] = {
+            "roe": _num(prof.get("roe")),
+            "roa": _num(prof.get("roa")),
+            "der": _num(lev.get("debt_to_equity_ratio")),
+        }
+
+    years: list[dict[str, Any]] = []
+    for y in sorted(by_year)[-max_years:]:
+        r = by_year[y]
+        c = {"roe_ttm": r["roe"], "roa_ttm": r["roa"], "der_mrq": r["der"], "pe_ttm": pe_by_year.get(y)}
+        parts = [score_valuation(c), score_debt(c), score_quality(c), score_profitability(c)]
+        known = sum(cf for _, cf in parts)
+        years.append({
+            "year": y,
+            "roe": r["roe"],
+            "roa": r["roa"],
+            "der": r["der"],
+            "pe": pe_by_year.get(y),
+            "valuation": parts[0][0],
+            "debt": parts[1][0],
+            "quality": parts[2][0],
+            "profitability": parts[3][0],
+            # 4 sub-scores x 20 = 80 points, rescaled to 0-100. None when no input is known.
+            "score": round(sum(s for s, _ in parts) * 100 / 80, 1) if known else None,
+        })
+
+    return {"years": years, "trend": _trend(years)}
+
+
+def _trend(years: list[dict[str, Any]]) -> str | None:
+    """Latest year's score vs the average of the up-to-3 years before it."""
+    scored = [y["score"] for y in years if y["score"] is not None]
+    if len(scored) < 2:
+        return None
+    prior = scored[-4:-1]
+    delta = scored[-1] - sum(prior) / len(prior)
+    if delta >= 5:
+        return "improving"
+    if delta <= -5:
+        return "deteriorating"
+    return "stable"
+
+
 def score_company(c: dict[str, Any]) -> ScoreResult:
     val, cf1 = score_valuation(c)
     mom, cf2 = score_momentum(c)

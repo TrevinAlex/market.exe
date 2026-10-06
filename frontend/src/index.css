@@ -1266,6 +1266,53 @@ button {
   font-size: 11px;
 }
 
+/* ---------- fundamentals history (yearly, from the Company Report) ---------- */
+.fund-history {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  padding: 12px;
+}
+.fund-trend {
+  font-weight: 700;
+}
+.fund-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 120px;
+}
+.fund-bar {
+  flex: 1;
+  min-width: 28px;
+  max-width: 64px;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  justify-items: center;
+  gap: 4px;
+}
+.fund-bar-track {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--border);
+}
+.fund-bar-fill {
+  width: 100%;
+  opacity: 0.8;
+}
+.fund-bar-val,
+.fund-bar-year {
+  font-size: 10px;
+  color: var(--dim);
+}
+.fund-table td {
+  font-family: var(--mono, monospace);
+}
+
 /* ---------- fan chart legend ---------- */
 .fan-legend {
   display: flex;

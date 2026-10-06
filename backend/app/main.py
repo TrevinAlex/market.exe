@@ -28,6 +28,7 @@ to it and handles API errors from the upstream Sectors API.
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections import Counter, defaultdict
 from typing import Literal
 
@@ -60,7 +61,7 @@ from app.auth import (
     require_admin,
 )
 from app.config import settings
-from app.core.scoring import flatten_report, score_company
+from app.core.scoring import flatten_report, fundamentals_history, score_company
 from app.core.simulation import predict_daily_vol, run_simulation, upcoming_dividends
 from app.security import (
     RateLimitMiddleware,
@@ -243,17 +244,36 @@ user_only = [Depends(require_user)]
 admin_only = [Depends(require_admin)]
 
 
+# Server-side log of upstream failures. The HTTP response stays generic (no
+# upstream details leak to users); this line only shows in the backend terminal.
+_log = logging.getLogger("uvicorn.error")
+
+
+def _log_sectors_error(e: httpx.HTTPError) -> None:
+    if isinstance(e, httpx.HTTPStatusError):
+        _log.warning(
+            "Sectors API returned %s for %s: %s",
+            e.response.status_code,
+            e.request.url.path,
+            e.response.text[:300],
+        )
+    else:
+        _log.warning("Sectors API request failed: %s: %s", type(e).__name__, e)
+
+
 async def _safe_screen(base_where: str | None, limit: int, offset: int):
     try:
         return await sectors_client.screen_scored(
             base_where=base_where, limit=limit, offset=offset
         )
     except httpx.HTTPStatusError as e:
+        _log_sectors_error(e)
         raise HTTPException(
             status_code=502,
             detail=safe_detail(f"Sectors API error {e.response.status_code}", e),
         ) from e
     except httpx.HTTPError as e:
+        _log_sectors_error(e)
         raise HTTPException(
             status_code=502, detail=safe_detail("Sectors API request failed", e)
         ) from e
@@ -294,6 +314,7 @@ async def company(
     try:
         report = await sectors_client.company_report(symbol)
     except httpx.HTTPError as e:
+        _log_sectors_error(e)
         raise HTTPException(
             status_code=502, detail=safe_detail("Sectors API request failed", e)
         ) from e
@@ -363,6 +384,7 @@ async def simulate(
     try:
         report = await sectors_client.company_report(symbol)
     except httpx.HTTPError as e:
+        _log_sectors_error(e)
         raise HTTPException(
             status_code=502, detail=safe_detail("Sectors API request failed", e)
         ) from e
@@ -411,7 +433,14 @@ async def simulate(
                 "p50": sim["bands"]["p50"],
             },
         )
-    return SimulationResponse(symbol=result.symbol, **sim)
+    # Yearly health history from the report we already fetched -- no extra credits.
+    fund = fundamentals_history(report)
+    return SimulationResponse(
+        symbol=result.symbol,
+        **sim,
+        fundamentals=fund["years"],
+        fundamentals_trend=fund["trend"],
+    )
 
 
 # --- user history (Supabase) -------------------------------------------------

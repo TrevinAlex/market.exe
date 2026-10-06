@@ -8,8 +8,9 @@ MARKET.EXE turns raw [Sectors](https://sectors.app) data into signals the API do
 - **Health score (0–100), shown as a game HP bar.** Five derived sub-scores combined into one number.
 - **Market regime.** Each stock is labelled Accumulation, Recovery, Distribution or Stress.
 - **Sector heatmap.** Which LQ45 sectors are under stress.
-- **30-day scenario simulator.** A backtested range of where the price could realistically be in 30 trading days.
-- **Model report card.** How accurate the simulator was against real prices, plus a glossary of every term in the app.
+- **30-day scenario simulator.** A backtested range of where the price could realistically be in 30 trading days, with a position risk calculator in Rupiah.
+- **Fundamentals history.** Each company's yearly ROE, ROA, debt/equity and P/E from the Sectors Company Report, scored with the same rules, so you can see whether its health is improving or deteriorating.
+- **Model report card.** How accurate the simulator was against real prices, including where it's weak, plus a glossary of every term in the app.
 
 > For informational purposes only. Not a recommendation to buy or sell securities.
 
@@ -109,20 +110,29 @@ The output is the P10 / P25 / P50 / P75 / P90 price range, sample paths for the 
 
 ### Backtest results (shown on the Report card tab)
 
-**Setup:** a walk-forward test with 17,646 forecasts on 45 LQ45 stocks, 2019–2026, using dataset prices. Each year was predicted with models trained only on earlier data.
+**Setup:** a walk-forward test with 15,426 forecasts on 45 LQ45 stocks, 2019–2026, using daily prices. Each year was predicted with models trained only on earlier data.
 
 | Check | Result | Target |
 |---|---|---|
-| Real price inside the P10–P90 range | **80.2%** | 80% |
-| Real price inside the P25–P75 range | **49.9%** | 50% |
-| Dividend windows, average forecast bias | −2.7% → **+1.0%** | ~0% |
+| Real price inside the P10–P90 range | **79.5%** | 80% |
+| Real price inside the P25–P75 range | **52.0%** | 50% |
+| Range width tracks real volatility (correlation) | **0.63** (52-week range alone: 0.55) | higher is better |
+| Dividend windows, median forecast bias | +2.4% → **−1.3%** | ~0% |
+| 2020 COVID crash, inside P10–P90 | 65% (other years 79–85%) | 80% |
 | Predicting up vs down (agents, logistic regression, boosted trees) | ≈ 50% | > 50% |
 
-**What this means:** MARKET.EXE does what most stock tools only claim to do. Its price ranges are measured against real outcomes, and they hold up. When the app says there's an 80% chance the price lands between two values, that happened 80.2% of the time across 17,646 real cases. That makes it a reliable tool for the question investors most need answered before buying: *how much could this realistically move in the next six weeks?*
+For comparison, the first version of the simulator, with one fixed volatility for every stock, caught only 39% of outcomes in its "80%" range.
 
-We tested direction too. Three different models, from simple to machine learning, couldn't call up versus down better than chance over 30 days, and that matches decades of research on large, liquid stocks. So MARKET.EXE deliberately doesn't sell a direction call it can't back up. That's why "probability up" sits near 50%: it reflects a model that reports what the evidence supports.
+**What this means:** MARKET.EXE does what most stock tools only claim to do. Its price ranges are measured against real outcomes, and they hold up. When the app says there's an 80% chance the price lands between two values, that happened 79.5% of the time across 15,426 real cases. That makes it a reliable tool for the question investors most need answered before buying: *how much could this realistically move in the next six weeks?*
 
-The health score is a transparent snapshot of a company's financial condition today, built from five clearly defined measures. Testing whether it predicts future returns needs historical fundamentals, and that's the next step on the roadmap.
+We tested direction too. Three different models, from simple to machine learning, couldn't call up versus down better than chance over 30 days, which is consistent with financial research on large, liquid stocks. So MARKET.EXE deliberately doesn't sell a direction call it can't back up. That's why "probability up" sits near 50%: it reflects a model that reports what the evidence supports.
+
+**Where it's weaker, and what we tried:**
+- **Crashes.** In the first weeks of a crash, volatility jumps faster than any model built on recent prices can see. That's why 2020 caught only 65%.
+- **Stock by stock.** Accuracy varies by stock. Calm large caps land inside the range more often than 80% (BBCA 90%), while stocks that trended hard land inside it less often (ARTO 65%, BRPT 67% during the 2020–21 boom).
+- **Rejected fixes.** We tested adding 1-year volatility, the sector, and a separate setting per stock to the volatility model. None improved overall accuracy, so none were shipped. The remaining misses come from sustained trends, which is a direction problem, not a volatility one.
+
+The health score is a transparent snapshot of a company's financial condition today, built from five clearly defined measures, and the Fundamentals history panel shows how it has moved year by year. Testing whether it predicts future returns needs each year's fundamentals for every stock (about 90 Sectors credits for LQ45), and that's the next step on the roadmap.
 
 **Caveat:** the test used stocks in LQ45 today, which slightly favours stocks that did well (survivorship bias).
 
@@ -130,10 +140,35 @@ To reproduce the backtest (free Yahoo Finance prices, no Sectors credits), run f
 
 ```powershell
 backend\.venv\Scripts\python.exe backtest\run_backtest.py --quick   # 8 stocks, about 2 minutes
-backend\.venv\Scripts\python.exe backtest\run_backtest.py           # all 45 stocks, about 10-15 minutes
+backend\.venv\Scripts\python.exe backtest\run_backtest.py --dump backtest\data\forecasts.json   # all 45 stocks, about 10 minutes
+backend\.venv\Scripts\python.exe backtest\calibration_breakdown.py   # accuracy by year, sector, volatility and stock
+backend\.venv\Scripts\python.exe backtest\vol_experiment.py          # the rejected volatility-model variants
 ```
 
-It prints the report-card metrics and writes them to `backtest/results.json`. Price downloads are cached in `backtest/data/` (git-ignored). The script is a rebuild of the original research scripts, so its numbers can differ slightly from the table above; the 8-stock quick run gives 77.6% inside P10–P90 and 51.0% inside P25–P75. The volatility model's coefficients used by the app are hardcoded in `simulation.py` (`_VOL_MODEL`).
+`run_backtest.py` prints the report-card metrics and writes them to `backtest/results.json`. The numbers in the table above come from that full 45-stock run. Price downloads are cached in `backtest/data/` (git-ignored). The volatility model's coefficients used by the app are hardcoded in `simulation.py` (`_VOL_MODEL`).
+
+`backtest/health_backtest.py` is a prepared test of the health score itself. It's not run yet: it needs historical fundamentals, see above.
+
+## How we compare
+
+Indonesian investors already have good free tools. MARKET.EXE doesn't try to replace them; it answers a question they mostly don't.
+
+| | Stockbit / RTI Business | TradingView / Investing.com | Simply Wall St | **MARKET.EXE** |
+|---|---|---|---|---|
+| Full financial statements, real-time prices, all IDX stocks | ✅ | ✅ | ✅ | Partial (via Sectors, LQ45 focus) |
+| Community, news feed, broker flows | ✅ | Partial | ❌ | ❌ |
+| One-number health / quality score | ❌ | ❌ | ✅ "snowflake" | ✅ HP bar, with the inputs and rules shown |
+| Forward-looking 30-day price range | Analyst targets only | Volatility indicators | Analyst targets / fair value | ✅ Simulated range |
+| That range checked against real outcomes | ❌ | ❌ | ❌ | ✅ 79.5% inside the 80% range |
+| Risk shown in Rupiah for your amount | ❌ | ❌ | ❌ | ✅ Position risk calculator |
+| Known dividends built into the forecast | ❌ | ❌ | ❌ | ✅ |
+| Says openly what it can't predict | — | — | — | ✅ Report card |
+
+**Why the gap exists:** in the US, options prices give investors the market's own expected range for free. IDX has no liquid options market, so Indonesian investors don't get that number. MARKET.EXE estimates it from each stock's own price history and publishes how accurate the estimate has been.
+
+**Where others are stronger:** depth (full statements, every listed stock, real-time data), community and news, and years of real users. MARKET.EXE's health score is no better proven than a snowflake score as a return predictor; its advantage is transparency.
+
+*This comparison reflects the tools' commonly known free features as of October 2026; features change, so check each tool for its current offering.*
 
 ## API
 

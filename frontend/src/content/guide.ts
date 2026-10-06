@@ -2,10 +2,11 @@
  * Content for the REPORT CARD tab: how well the model holds up against real
  * prices, and a glossary of every technical term the app shows.
  *
- * Backtest numbers come from the walk-forward tests run on 2026-10-05
- * (45 LQ45 stocks, Yahoo Finance daily prices, a forecast every 5 trading
- * days 2019-2026, models trained only on earlier data). Update them here if
- * the model changes and the backtest is re-run.
+ * Backtest numbers come from backtest/run_backtest.py (re-run 2026-10-06:
+ * 45 LQ45 stocks, Yahoo Finance daily prices, a forecast every 5 trading days
+ * 2019-2026, models trained only on earlier data) plus
+ * backtest/calibration_breakdown.py and backtest/vol_experiment.py. Update them
+ * here if the model changes and the backtest is re-run.
  */
 import type { Regime } from '../api/types';
 import { REGIMES, REGIME_MEANING, REGIME_RANGE, SUB_SCORE_META } from '../theme/tokens';
@@ -17,12 +18,13 @@ export interface ReportRow {
   result: string;
   target: string;
   grade: Grade;
+  label?: string; // overrides the default badge text for this grade
   meaning: string;
 }
 
 export const BACKTEST = {
   stocks: 45,
-  forecasts: 17646,
+  forecasts: 15426,
   years: '2019–2026',
   horizonDays: 30,
   source: 'Yahoo Finance daily prices',
@@ -31,16 +33,16 @@ export const BACKTEST = {
 export const REPORT_CARD: ReportRow[] = [
   {
     metric: 'Real price lands inside the P10–P90 range',
-    result: '80.2%',
+    result: '79.5%',
     target: '80%',
     grade: 'pass',
     meaning:
       'The main promise of the simulation. The range is meant to catch 8 out of 10 real outcomes, and it does. ' +
-      'An earlier version with one fixed volatility for every stock only caught 42%.',
+      'An earlier version with one fixed volatility for every stock only caught 39%.',
   },
   {
     metric: 'Real price lands inside the P25–P75 range',
-    result: '49.9%',
+    result: '52.0%',
     target: '50%',
     grade: 'pass',
     meaning: 'The tighter middle range is also honest: about half of real outcomes fall inside it.',
@@ -53,16 +55,28 @@ export const REPORT_CARD: ReportRow[] = [
     meaning:
       "Each stock's volatility is predicted from its last ~60 trading days and its 52-week range, so a calm bank " +
       'gets a narrow range and a volatile miner a wide one. Correlation with the volatility that actually followed: ' +
-      '0.63, up from 0.53 using the 52-week range alone.',
+      '0.63, up from 0.55 using the 52-week range alone. Adding 1-year volatility or the sector was tested and ' +
+      'rejected: neither improved accuracy.',
   },
   {
     metric: 'Known dividends',
-    result: '−2.7% → +1.0% bias',
+    result: '+2.4% → −1.3% bias',
     target: 'close to 0%',
     grade: 'pass',
     meaning:
       'When an ex-dividend date falls inside the 30 days, the price drops by about the dividend. Modelling that cut ' +
-      'the average forecast error in those windows from 2.7% too high to 1.0% too low.',
+      'the median forecast error in those windows from 2.4% too high to 1.3% too low.',
+  },
+  {
+    metric: 'Holds up in a market crash',
+    result: '65% in 2020',
+    target: '80%',
+    grade: 'warn',
+    label: 'WEAK SPOT',
+    meaning:
+      'Every other year landed between 79% and 85%, but in the 2020 COVID crash only 65% of outcomes fell inside ' +
+      'the range: volatility jumped faster than any recent-history model can see. Expect ranges to be too narrow ' +
+      'in the first weeks of a crash, and too wide for very calm large caps such as BBCA.',
   },
   {
     metric: 'Predicting up vs down',
@@ -71,7 +85,8 @@ export const REPORT_CARD: ReportRow[] = [
     grade: 'fail',
     meaning:
       'Nothing we tested beat a coin flip at calling the direction over 30 days: not the agent mix, not a logistic ' +
-      "regression, not boosted trees. So the app doesn't claim to know direction. Probability up stays near 50% on purpose.",
+      'regression, not boosted trees. The 52% in the latest run is no better than always guessing "down" (53%). ' +
+      "So the app doesn't claim to know direction. Probability up stays near 50% on purpose.",
   },
   {
     metric: 'Health score as a return predictor',
@@ -79,8 +94,10 @@ export const REPORT_CARD: ReportRow[] = [
     target: '—',
     grade: 'warn',
     meaning:
-      "Free historical fundamentals (P/E, debt, ROE, ROA) weren't available, so we couldn't test whether healthy " +
-      'stocks go on to outperform. Read the health score as a description of the company today, not a forecast.',
+      "Testing whether healthy stocks go on to outperform needs each year's fundamentals as they were known at the " +
+      'time, for every stock. Sectors has this history (the Fundamentals history panel shows it), but a fair test ' +
+      'across 45 stocks would cost about 90 API credits, so it is on the roadmap. Read the health score as a ' +
+      'description of the company today, not a forecast.',
   },
 ];
 
@@ -88,6 +105,8 @@ export const REPORT_CAVEATS = [
   "The test used stocks that are in LQ45 today, which slightly favours companies that did well (survivorship bias).",
   'Past accuracy is no guarantee of future accuracy. Market crashes can produce moves wider than any range.',
   'Forecasts are for the raw share price. Dividends you would receive are not added back.',
+  'Accuracy varies by stock: calm large caps (banks, consumer staples) land inside the range more often than 80%, ' +
+    'and stocks that trended hard (e.g. ARTO, BRPT in 2020–21) less often.',
 ];
 
 export interface GlossaryEntry {
@@ -138,6 +157,16 @@ export const GLOSSARY: GlossaryGroup[] = [
           'How many of the five sub-scores were calculated from real data. A missing input gets a neutral 10/20 instead.',
         good: '100%: every sub-score is backed by data.',
         bad: 'Below 60%: marked LOW SIGNAL and the HP bar fades. Treat the score with caution.',
+      },
+      {
+        term: 'Fundamentals history',
+        aka: 'yearly track record',
+        meaning:
+          "Each past fiscal year's ROE, ROA, debt/equity and P/E from the Sectors Company Report, scored with the same " +
+          "rules as today's health score. Momentum is left out (it needs that year's price range), so it covers 4 of the 5 " +
+          'parts, rescaled to 0–100. The trend compares the latest year with the average of the three before it.',
+        good: 'IMPROVING: the latest year scores at least 5 points above its recent average.',
+        bad: "DETERIORATING: at least 5 points below. A track record, not a forecast — it doesn't say where the price goes.",
       },
       {
         term: 'Sector under stress',

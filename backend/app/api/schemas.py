@@ -73,6 +73,19 @@ class SimEvent(BaseModel):
     amount: float  # IDR per share
 
 
+class FundamentalsYear(BaseModel):
+    year: int
+    roe: float | None
+    roa: float | None
+    der: float | None
+    pe: float | None
+    valuation: float  # sub-scores 0-20, same rules as today's health score
+    debt: float
+    quality: float
+    profitability: float
+    score: float | None  # the four sub-scores rescaled to 0-100 (no momentum)
+
+
 class SimulationResponse(BaseModel):
     symbol: str
     current_price: float
@@ -89,6 +102,9 @@ class SimulationResponse(BaseModel):
     expected_return_pct: float
     prob_price_up: float
     sample_paths: list[list[float]]
+    # Yearly fundamentals from the same Company Report (no extra credits).
+    fundamentals: list[FundamentalsYear] = []
+    fundamentals_trend: str | None = None  # "improving" | "stable" | "deteriorating"
 
 
 class HistoryEntry(BaseModel):
