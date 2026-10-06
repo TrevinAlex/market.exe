@@ -13,7 +13,7 @@ interface Props {
 
 const isRegime = (r: string): r is Regime => (REGIMES as string[]).includes(r);
 
-/** HUD-style regime label, e.g. "[ ACCUMULATION ]". Always text, never colour alone. */
+/** Regime label pill, e.g. "Accumulation". Always text, never colour alone. */
 export function RegimeBadge({ regime, color, size = 'sm', explain = false }: Props) {
   const badge = (
     <span
@@ -21,7 +21,7 @@ export function RegimeBadge({ regime, color, size = 'sm', explain = false }: Pro
       style={{ ['--regime' as string]: colorHex(color) }}
       aria-label={`Regime: ${regime}`}
     >
-      [ {regime.toUpperCase()} ]
+      {regime}
     </span>
   );
 

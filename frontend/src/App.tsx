@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AuthForm } from './components/AuthForm';
+import { Logo } from './components/Logo';
 import { useAuth } from './hooks/useAuth';
 import { CompanyPage } from './pages/CompanyPage';
 import { HeatmapPage } from './pages/HeatmapPage';
@@ -10,17 +11,17 @@ import { ScreenerPage } from './pages/ScreenerPage';
 
 type Tab = 'screener' | 'heatmap' | 'company' | 'report' | 'pinned' | 'history';
 const BASE_TABS: { id: Tab; label: string }[] = [
-  { id: 'screener', label: 'SCREENER' },
-  { id: 'heatmap', label: 'HEATMAP' },
-  { id: 'company', label: 'COMPANY' },
+  { id: 'screener', label: 'Screener' },
+  { id: 'heatmap', label: 'Heatmap' },
+  { id: 'company', label: 'Company' },
 ];
 // Only shown to logged-in users.
 const USER_TABS: { id: Tab; label: string }[] = [
-  { id: 'pinned', label: '★ PINNED' },
-  { id: 'history', label: 'HISTORY' },
+  { id: 'pinned', label: '★ Pinned' },
+  { id: 'history', label: 'History' },
 ];
 // Always last, pushed to the right end of the tab row (see .tab-right).
-const REPORT_TAB: { id: Tab; label: string } = { id: 'report', label: 'REPORT CARD' };
+const REPORT_TAB: { id: Tab; label: string } = { id: 'report', label: 'Report Card' };
 const USER_ONLY = new Set<Tab>(USER_TABS.map((t) => t.id));
 
 export default function App() {
@@ -85,8 +86,11 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1 className="brand">
-          MARKET.EXE
-          <small>STOCK HEALTH AND PROFITABILITY SIMULATOR</small>
+          <Logo width={64} />
+          <span className="brand-text">
+            MARKET.EXE
+            <small>STOCK HEALTH AND PROFITABILITY SIMULATOR</small>
+          </span>
         </h1>
         <span className="mono dim" style={{ fontSize: 11 }}>
           For informational purposes only · Not a recommendation to buy or sell securities
@@ -97,8 +101,8 @@ export default function App() {
       {showAuth && !user && (
         <div className="auth-wrap">
           <AuthForm onDone={() => setShowAuth(false)} />
-          <button type="button" className="btn btn-ghost" onClick={() => setShowAuth(false)}>
-            Back
+          <button type="button" className="btn btn-ghost auth-back" onClick={() => setShowAuth(false)}>
+            ← Back to app
           </button>
         </div>
       )}

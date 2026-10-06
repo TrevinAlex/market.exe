@@ -37,16 +37,16 @@ describe('toApiError', () => {
 });
 
 describe('display helpers', () => {
-  it('maps backend color keys to neon hex', () => {
-    expect(colorHex('green')).toBe('#00f5ff');
-    expect(colorHex('yellow')).toBe('#e6ff00');
-    expect(colorHex('amber')).toBe('#ffaa00');
-    expect(colorHex('red')).toBe('#ff2d55');
+  it('maps backend color keys to palette hex', () => {
+    expect(colorHex('green')).toBe('#45b8a8');
+    expect(colorHex('yellow')).toBe('#6a9ee0');
+    expect(colorHex('amber')).toBe('#dca24e');
+    expect(colorHex('red')).toBe('#df7b7b');
   });
   it('thermal scale endpoints', () => {
-    expect(thermalColor(0)).toBe('#ff2d55');
-    expect(thermalColor(100)).toBe('#00f5ff');
-    expect(thermalColor(-5)).toBe('#ff2d55');
+    expect(thermalColor(0)).toBe('#df7b7b');
+    expect(thermalColor(100)).toBe('#45b8a8');
+    expect(thermalColor(-5)).toBe('#df7b7b');
   });
   it('momentum N/A quirk', () => {
     expect(isNoData('momentum', 10, 0.4)).toBe(true);

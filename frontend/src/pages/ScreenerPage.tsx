@@ -1,16 +1,25 @@
 import { useId, useMemo, useState } from 'react';
-import type { Regime } from '../api/types';
+import type { Regime, Score, SubScoreKey } from '../api/types';
 import { ErrorAlert, Scanning } from '../components/Status';
 import { TickerRow } from '../components/TickerRow';
 import { Tip } from '../components/Tip';
 import { AllRegimesTipText, HEALTH_EXPLAINER, RegimeTipText } from '../components/explainers';
 import { useScreen } from '../hooks/useScreen';
-import { REGIMES, REGIME_COLOR_KEY, colorHex } from '../theme/tokens';
+import { usePins } from '../hooks/usePins';
+import { REGIMES, REGIME_COLOR_KEY, SUB_SCORE_KEYS, SUB_SCORE_META, colorHex } from '../theme/tokens';
 
 const INDEX = 'LQ45';
 // LQ45 has 45 members. 50 leaves headroom so a rebalance never truncates the
 // list, and it's still a single Sectors screener request.
 const LIMIT = 50;
+
+/** What the list can be sorted by: the composite health score or one sub-score. */
+type SortKey = 'composite' | SubScoreKey;
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'composite', label: 'Health score' },
+  ...SUB_SCORE_KEYS.map((k) => ({ key: k, label: `${SUB_SCORE_META[k].short} · ${SUB_SCORE_META[k].label}` })),
+];
+const sortValue = (s: Score, key: SortKey) => (key === 'composite' ? s.composite : s.sub_scores[key]);
 
 export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
   const { data, error, loading, reload } = useScreen(INDEX, LIMIT);
@@ -18,14 +27,20 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
   const [sector, setSector] = useState('');
   const [minScore, setMinScore] = useState(0);
   const [desc, setDesc] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>('composite');
   const sectorId = useId();
   const minId = useId();
+  const sortId = useId();
 
   const sectors = useMemo(
     () => [...new Set((data?.results ?? []).map((r) => r.sector).filter((s): s is string => !!s))].sort(),
     [data],
   );
 
+  const { isPinned } = usePins();
+
+  // Rank = position by health score (unchanged meaning). Pinned stocks are
+  // then lifted to the top, keeping their own rank number and score order.
   const rows = useMemo(() => {
     const list = (data?.results ?? []).filter(
       (r) =>
@@ -33,8 +48,15 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
         (!sector || r.sector === sector) &&
         r.composite >= minScore,
     );
-    return [...list].sort((a, b) => (desc ? b.composite - a.composite : a.composite - b.composite));
-  }, [data, regimes, sector, minScore, desc]);
+    // Sort by the chosen score; ties fall back to the health score (high first).
+    const ranked = [...list]
+      .sort((a, b) => {
+        const d = sortValue(a, sortKey) - sortValue(b, sortKey);
+        return (desc ? -d : d) || b.composite - a.composite;
+      })
+      .map((score, i) => ({ score, rank: i + 1, pinned: isPinned(score.symbol) }));
+    return [...ranked.filter((r) => r.pinned), ...ranked.filter((r) => !r.pinned)];
+  }, [data, regimes, sector, minScore, desc, sortKey, isPinned]);
 
   const toggleRegime = (r: Regime) =>
     setRegimes((prev) => {
@@ -106,14 +128,29 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
             </output>
           </div>
 
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => setDesc((d) => !d)}
-            aria-label={`Sort by score, currently ${desc ? 'descending' : 'ascending'}`}
-          >
-            SCORE {desc ? '▼' : '▲'}
-          </button>
+          <div className="field sort-field">
+            <label htmlFor={sortId}>SORT BY</label>
+            <select
+              id={sortId}
+              className="select"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn btn-ghost sort-dir"
+              onClick={() => setDesc((d) => !d)}
+              aria-label={`Sort order, currently ${desc ? 'highest first' : 'lowest first'}`}
+            >
+              {desc ? '▼ High → Low' : '▲ Low → High'}
+            </button>
+          </div>
 
           {filtersActive && (
             <button
@@ -159,8 +196,16 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
           ) : (
             <ol className="ticker-list">
               {rows.map((r, i) => (
-                <li key={r.symbol}>
-                  <TickerRow rank={i + 1} score={r} onOpen={onOpen} />
+                <li
+                  key={r.score.symbol}
+                  className={[
+                    r.pinned ? 'is-pinned' : '',
+                    r.pinned && !rows[i + 1]?.pinned && i < rows.length - 1 ? 'pinned-last' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ') || undefined}
+                >
+                  <TickerRow rank={r.rank} score={r.score} onOpen={onOpen} />
                 </li>
               ))}
             </ol>

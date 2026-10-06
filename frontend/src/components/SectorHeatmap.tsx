@@ -30,19 +30,19 @@ function SectorTile({ s }: { s: SectorRegime }) {
         0,
       )}% stressed, ${s.total} stocks (${breakdown})`}
     >
-      <div className="heat-meta">
+      <div className="heat-meta heat-head">
         <h3>{s.sector}</h3>
-        <span>{s.total} stk</span>
+        <span className="heat-count">{s.total} stocks</span>
       </div>
 
       <div className="heat-big" aria-hidden="true">
-        {s.stressed_pct.toFixed(0)}%<small>STRESSED{stressed ? ' ▲' : ''}</small>
+        {s.stressed_pct.toFixed(0)}%<small>stressed{stressed ? ' ▲' : ''}</small>
       </div>
 
-      <div className="heat-meta" aria-hidden="true">
-        <span>AVG SCORE</span>
+      <div className="heat-meta heat-score" aria-hidden="true">
+        <span>Avg. score</span>
         <span className="mono" style={{ color: heat }}>
-          {s.avg_score.toFixed(1)} / 100
+          {s.avg_score.toFixed(1)} <span className="dim">/ 100</span>
         </span>
       </div>
 
@@ -58,11 +58,11 @@ function SectorTile({ s }: { s: SectorRegime }) {
           />
         ))}
       </div>
-      <ul className="legend" aria-hidden="true">
+      <ul className="legend heat-legend" aria-hidden="true">
         {regimes.map((r) => (
           <li key={r}>
             <i style={{ background: colorHex(REGIME_COLOR_KEY[r]) }} />
-            {r.slice(0, 4).toUpperCase()} {s.distribution[r]}
+            {r} <b>{s.distribution[r]}</b>
           </li>
         ))}
       </ul>

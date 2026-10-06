@@ -1,17 +1,22 @@
 import type { AgentKey, Regime, RegimeColor, SubScoreKey } from '../api/types';
 
-/** Single source of truth for the neon palette. Mirrors CSS vars in index.css. */
+/**
+ * Single source of truth for the palette. Mirrors CSS vars in index.css.
+ * NAVY theme: key names are kept from the original neon palette so every
+ * consumer keeps working; `cyan` is now teal (Accumulation / positive) and
+ * `yellow` is now blue (Recovery).
+ */
 export const palette = {
-  bg: '#0a0a0f',
-  panel: '#12121a',
-  border: '#1f1f2e',
-  text: '#d7d9e4',
-  dim: '#7a7d93',
-  cyan: '#00f5ff',
-  yellow: '#e6ff00',
-  amber: '#ffaa00',
-  red: '#ff2d55',
-  grey: '#5a5d70',
+  bg: '#0a1020',
+  panel: '#111b2e',
+  border: '#1f2e4a',
+  text: '#dde4f2',
+  dim: '#8e9dba',
+  cyan: '#45b8a8',
+  yellow: '#6a9ee0',
+  amber: '#dca24e',
+  red: '#df7b7b',
+  grey: '#5f7090',
 } as const;
 
 /** Backend `color` key -> neon hex. */
@@ -100,7 +105,7 @@ export const SUB_SCORE_META: Record<SubScoreKey, { label: string; short: string;
 export const AGENT_META: Record<AgentKey, { label: string; color: string }> = {
   panic_sellers: { label: 'Panic sellers', color: palette.red },
   momentum_buyers: { label: 'Momentum buyers', color: palette.cyan },
-  value_buyers: { label: 'Value buyers', color: '#00a8b0' },
+  value_buyers: { label: 'Value buyers', color: '#6b8fd6' },
   profit_takers: { label: 'Profit takers', color: palette.amber },
   passive_holders: { label: 'Passive holders', color: palette.grey },
 };

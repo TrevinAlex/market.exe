@@ -1,6 +1,6 @@
-import { useEffect, useId, useState, type FormEvent } from 'react';
-import { baseTicker, normalizeTicker } from '../api/client';
-import type { Regime, Score, SimulationResponse } from '../api/types';
+import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { api, baseTicker, normalizeTicker } from '../api/client';
+import type { Regime, Score, ScreenResponse, SimulationResponse } from '../api/types';
 import { AgentMixBar } from '../components/AgentMixBar';
 import { FanChart } from '../components/FanChart';
 import { FundamentalsHistory } from '../components/FundamentalsHistory';
@@ -13,6 +13,7 @@ import { Tip } from '../components/Tip';
 import { HEALTH_EXPLAINER } from '../components/explainers';
 import { isNoData, normalizedOf } from '../components/subScoreUtils';
 import { useCompany } from '../hooks/useCompany';
+import { useAsync } from '../hooks/useAsync';
 import { useSimulate } from '../hooks/useSimulate';
 import { formatIdr, formatPct01, formatSignedPct } from '../theme/format';
 import { LOT_SIZE, formatIdrCompact, parseRupiah, positionRisk } from '../components/positionRisk';
@@ -20,6 +21,7 @@ import {
   REGIME_MEANING,
   SUB_SCORE_KEYS,
   SUB_SCORE_META,
+  colorHex,
   isFinancialSector,
   palette,
 } from '../theme/tokens';
@@ -47,7 +49,7 @@ export function CompanyPage({ symbol, onSymbol }: Props) {
           <section className="panel stack" aria-label="Scenario simulation">
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <button type="button" className="btn btn-primary" onClick={sim.run} disabled={sim.loading}>
-                [ {sim.data ? 'RE-RUN' : 'RUN'} SIMULATION ]
+                {sim.data ? 'Re-run simulation' : 'Run simulation'}
               </button>
               <p className="note">
                 Range width comes from this stock's own volatility; known dividends are included. Agents add trading
@@ -64,19 +66,88 @@ export function CompanyPage({ symbol, onSymbol }: Props) {
   );
 }
 
+// Same index + limit as the Screener, so the backend answers from its 15-minute
+// cache and the suggestion list costs no extra Sectors credit.
+const SUGGEST_INDEX = 'LQ45';
+const SUGGEST_LIMIT = 50;
+const SUGGEST_MAX = 8;
+
 function TickerSearch({ current, onSubmit }: { current: string | null; onSubmit: (s: string) => void }) {
   const [value, setValue] = useState(current ?? '');
   const [invalid, setInvalid] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  // The list is fetched only after the first focus, never on page load.
+  const [wantList, setWantList] = useState(false);
   const inputId = useId();
   const errId = useId();
+  const listId = useId();
+
+  const list = useAsync<ScreenResponse>(wantList ? `${SUGGEST_INDEX}:${SUGGEST_LIMIT}` : null, (signal) =>
+    api.screen(SUGGEST_INDEX, SUGGEST_LIMIT, signal),
+  );
+
+  const suggestions = useMemo(() => {
+    const q = value.trim().toUpperCase();
+    const all = [...(list.data?.results ?? [])].sort((a, b) => baseTicker(a.symbol).localeCompare(baseTicker(b.symbol)));
+    if (!q) return all.slice(0, SUGGEST_MAX);
+
+    // Ticker-prefix matches always come first. Company names only match on the
+    // START of a word, ignoring "PT" / "Tbk" — otherwise "B" would hit every
+    // name through "Tbk" and A-tickers would fill the list.
+    const nameWords = (name: string) =>
+      name
+        .toUpperCase()
+        .replace(/[^A-Z0-9 ]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w && w !== 'PT' && w !== 'TBK');
+    const bySymbol = all.filter((s) => baseTicker(s.symbol).startsWith(q));
+    const byName = all.filter(
+      (s) => !baseTicker(s.symbol).startsWith(q) && nameWords(s.company_name).some((w) => w.startsWith(q)),
+    );
+    return [...bySymbol, ...byName].slice(0, SUGGEST_MAX);
+  }, [list.data, value]);
+
+  const showList = open && suggestions.length > 0;
 
   useEffect(() => {
     setValue(current ?? '');
     setInvalid(false);
   }, [current]);
 
+  useEffect(() => {
+    setActive(-1);
+  }, [value]);
+
+  const pick = (sym: string) => {
+    setValue(sym);
+    setInvalid(false);
+    setOpen(false);
+    setActive(-1);
+    onSubmit(sym);
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpen(true);
+      setActive((i) => (suggestions.length ? (i + 1) % suggestions.length : -1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setOpen(true);
+      setActive((i) => (suggestions.length ? (i <= 0 ? suggestions.length - 1 : i - 1) : -1));
+    } else if (e.key === 'Enter' && showList && active >= 0) {
+      e.preventDefault();
+      pick(baseTicker(suggestions[active].symbol));
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      setActive(-1);
+    }
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    setOpen(false);
     const t = normalizeTicker(value);
     if (!t) {
       setInvalid(true);
@@ -89,27 +160,68 @@ function TickerSearch({ current, onSubmit }: { current: string | null; onSubmit:
   return (
     <form className="panel toolbar" onSubmit={submit} role="search" noValidate>
       <label htmlFor={inputId} className="field">
-        TICKER &gt;
+        Ticker
       </label>
-      <input
-        id={inputId}
-        className="input"
-        value={value}
-        onChange={(e) => setValue(e.target.value.toUpperCase())}
-        maxLength={4}
-        placeholder="BBCA"
-        autoComplete="off"
-        spellCheck={false}
-        pattern="[A-Za-z]{4}"
-        aria-invalid={invalid}
-        aria-describedby={invalid ? errId : undefined}
-        style={{ width: 90, textTransform: 'uppercase', letterSpacing: '0.1em' }}
-      />
+      <div className="ticker-combo">
+        <input
+          id={inputId}
+          className="input ticker-input"
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value.toUpperCase());
+            setOpen(true);
+          }}
+          onFocus={() => {
+            setWantList(true);
+            setOpen(true);
+          }}
+          onBlur={() => setOpen(false)}
+          onKeyDown={onKeyDown}
+          maxLength={4}
+          placeholder="BBCA"
+          autoComplete="off"
+          spellCheck={false}
+          pattern="[A-Za-z]{4}"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showList}
+          aria-controls={listId}
+          aria-activedescendant={showList && active >= 0 ? `${listId}-${active}` : undefined}
+          aria-invalid={invalid}
+          aria-describedby={invalid ? errId : undefined}
+          style={{ width: 90, textTransform: 'uppercase', letterSpacing: '0.1em' }}
+        />
+        <ul id={listId} role="listbox" aria-label="LQ45 tickers" className="ticker-suggest" hidden={!showList}>
+          {suggestions.map((s, i) => {
+            const sym = baseTicker(s.symbol);
+            return (
+              <li
+                key={s.symbol}
+                id={`${listId}-${i}`}
+                role="option"
+                aria-selected={i === active}
+                className="ticker-option"
+                // mousedown keeps focus in the input so blur does not close the list first
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => pick(sym)}
+              >
+                <span className="ticker-option-dot" style={{ background: colorHex(s.color) }} aria-hidden="true" />
+                <span className="ticker-option-sym">{sym}</span>
+                <span className="ticker-option-name">{s.company_name}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
       <button type="submit" className="btn">
         Scan
       </button>
       {invalid && (
-        <span id={errId} role="alert" className="mono" style={{ color: 'var(--red)', fontSize: 12 }}>
+        <span id={errId} role="alert" className="field-error">
+          <span className="field-error-icon" aria-hidden="true">
+            !
+          </span>
           Ticker must be exactly 4 letters (e.g. BBCA)
         </span>
       )}
@@ -234,16 +346,25 @@ function CompanyOverview({ score }: { score: Score }) {
         )}
       </section>
 
-      <section className="panel" aria-label="Sub-score radar" style={{ display: 'grid', placeItems: 'center' }}>
-        <h3 className="panel-title" style={{ justifySelf: 'start' }}>
+      <section
+        className="panel"
+        aria-label="Sub-score radar"
+        style={{ display: 'grid', gridTemplateRows: 'auto auto 1fr', alignContent: 'start' }}
+      >
+        <h3 className="panel-title" style={{ marginBottom: 2 }}>
           Signal profile
         </h3>
-        <RadarChart
-          subScores={score.sub_scores}
-          normalized={score.sub_scores_normalized}
-          confidence={score.confidence}
-          size={300}
-        />
+        <p className="note" style={{ marginBottom: 8 }}>
+          Each axis is one sub-score, 0–100. A bigger shape means stronger fundamentals.
+        </p>
+        <div style={{ display: 'grid', placeItems: 'center' }}>
+          <RadarChart
+            subScores={score.sub_scores}
+            normalized={score.sub_scores_normalized}
+            confidence={score.confidence}
+            size={460}
+          />
+        </div>
       </section>
     </div>
   );

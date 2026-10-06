@@ -136,7 +136,7 @@ export function FanChart({ paths, bands, dailyBands, events = [], currentPrice, 
           fill="none"
           stroke={palette.cyan}
           strokeWidth={2}
-          style={{ filter: 'drop-shadow(0 0 3px #00f5ff)' }}
+          style={{ filter: 'none' }}
         />
 
         {/* ex-dividend markers */}

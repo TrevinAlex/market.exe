@@ -1,6 +1,8 @@
+import { useId } from 'react';
 import type { SubScores } from '../api/types';
-import { SUB_SCORE_KEYS, SUB_SCORE_META, palette } from '../theme/tokens';
+import { SUB_SCORE_KEYS, SUB_SCORE_META, palette, thermalColor } from '../theme/tokens';
 import { isNoData, normalizedOf } from './subScoreUtils';
+import { Tip } from './Tip';
 
 interface Props {
   subScores: SubScores;
@@ -11,8 +13,9 @@ interface Props {
 
 /** Pentagon radar of the 5 normalised sub-scores (plain SVG). */
 export function RadarChart({ subScores, normalized, confidence, size = 260 }: Props) {
+  const gradId = useId();
   const c = size / 2;
-  const r = size / 2 - 44;
+  const r = size / 2 - 80; // leave room for the two-line labels
   const n = SUB_SCORE_KEYS.length;
   const angle = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
   const pt = (i: number, v: number) => [c + Math.cos(angle(i)) * r * v, c + Math.sin(angle(i)) * r * v] as const;
@@ -22,45 +25,108 @@ export function RadarChart({ subScores, normalized, confidence, size = 260 }: Pr
   const shape = values.map((v, i) => pt(i, Math.max(0.02, v)).join(',')).join(' ');
   const label = SUB_SCORE_KEYS.map((k, i) => `${SUB_SCORE_META[k].label} ${Math.round(values[i] * 100)}%`).join(', ');
 
-  return (
-    <svg viewBox={`0 0 ${size} ${size}`} width="100%" style={{ maxWidth: size }} role="img" aria-label={`Sub-score radar: ${label}`}>
-      {[0.25, 0.5, 0.75, 1].map((v) => (
-        <polygon key={v} points={ring(v)} fill="none" stroke={palette.border} strokeWidth={1} />
+  const chart = (
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      width="100%"
+      style={{ display: 'block' }}
+      role="img"
+      aria-label={`Sub-score radar: ${label}`}
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={palette.cyan} stopOpacity={0.45} />
+          <stop offset="100%" stopColor={palette.yellow} stopOpacity={0.25} />
+        </linearGradient>
+      </defs>
+
+      {/* soft filled rings, outermost first so inner ones sit on top */}
+      {[1, 0.75, 0.5, 0.25].map((v, idx) => (
+        <polygon
+          key={v}
+          points={ring(v)}
+          fill="#ffffff"
+          fillOpacity={idx % 2 === 0 ? 0.025 : 0.045}
+          stroke="#ffffff"
+          strokeOpacity={0.07}
+          strokeWidth={1}
+          strokeLinejoin="round"
+        />
       ))}
       {SUB_SCORE_KEYS.map((_, i) => {
         const [x, y] = pt(i, 1);
-        return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke={palette.border} />;
+        return <line key={i} x1={c} y1={c} x2={x} y2={y} stroke="#ffffff" strokeOpacity={0.06} />;
       })}
+
+      {/* ring scale: 50 and 100 */}
+      {[0.5, 1].map((v) => {
+        const [, y] = pt(0, v);
+        return (
+          <text
+            key={v}
+            x={c + 4}
+            y={y + 10}
+            fontSize={9}
+            fontFamily="var(--font-sans)"
+            fill={palette.grey}
+            fillOpacity={0.8}
+          >
+            {v * 100}
+          </text>
+        );
+      })}
+
       <polygon
         points={shape}
-        fill={palette.cyan}
-        fillOpacity={0.18}
+        fill={`url(#${gradId})`}
         stroke={palette.cyan}
-        strokeWidth={1.5}
-        style={{ filter: 'drop-shadow(0 0 4px rgba(0,245,255,0.7))' }}
+        strokeWidth={2}
+        strokeLinejoin="round"
       />
+
       {SUB_SCORE_KEYS.map((k, i) => {
         const na = isNoData(k, subScores[k], confidence);
         const [px, py] = pt(i, Math.max(0.02, values[i]));
-        const [lx, ly] = pt(i, 1.22);
         return (
-          <g key={k}>
-            <circle cx={px} cy={py} r={3} fill={na ? palette.grey : palette.cyan} />
-            <text
-              x={lx}
-              y={ly}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fontSize={10}
-              fontFamily="var(--font-mono)"
-              fill={na ? palette.grey : palette.dim}
-            >
-              {SUB_SCORE_META[k].short}
-              {na ? ' N/A' : ` ${Math.round(values[i] * 100)}`}
-            </text>
-          </g>
+          <circle
+            key={k}
+            cx={px}
+            cy={py}
+            r={4.5}
+            fill={na ? palette.grey : palette.cyan}
+            stroke={palette.panel}
+            strokeWidth={2}
+          />
         );
       })}
     </svg>
+  );
+
+  return (
+    <div className="radar" style={{ maxWidth: size }}>
+      {chart}
+      {/* Axis labels are HTML (not SVG text) so each name can carry the same
+          hover/focus explanation as the sub-score table. */}
+      {SUB_SCORE_KEYS.map((k, i) => {
+        const na = isNoData(k, subScores[k], confidence);
+        const pct = Math.round(values[i] * 100);
+        const [lx, ly] = pt(i, 1.3);
+        const valueColor = na ? palette.grey : thermalColor(pct);
+        return (
+          <div
+            key={k}
+            className="radar-label"
+            style={{ left: `${(lx / size) * 100}%`, top: `${(ly / size) * 100}%` }}
+          >
+            <Tip text={SUB_SCORE_META[k].measures} align={lx > c + 10 ? 'right' : 'left'}>
+              {SUB_SCORE_META[k].label}
+            </Tip>
+            <span className="radar-value" style={{ color: valueColor }} aria-hidden="true">
+              {na ? 'N/A' : pct}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }

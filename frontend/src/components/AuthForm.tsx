@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { ApiError, PASSWORD_MAX, PASSWORD_MIN, USERNAME_RE, errorMessage } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
+import { Logo } from './Logo';
 
 type Mode = 'login' | 'register';
 
@@ -50,17 +51,26 @@ export function AuthForm({ initialMode = 'login', onDone }: { initialMode?: Mode
 
   return (
     <section className="panel auth-panel" aria-labelledby={`${id}-title`}>
-      <h2 className="panel-title" id={`${id}-title`}>
-        {isRegister ? '> Create account' : '> User login'}
-      </h2>
+      <div className="auth-head">
+        <Logo width={84} className="auth-logo" />
+        <h2 className="auth-title" id={`${id}-title`}>
+          {isRegister ? 'Create your account' : 'Welcome back'}
+        </h2>
+        <p className="auth-sub">
+          {isRegister
+            ? 'Save your favourite stocks and keep your history in one place.'
+            : 'Sign in to see your pinned stocks and history.'}
+        </p>
+      </div>
 
-      <form className="stack" onSubmit={onSubmit} noValidate>
+      <form className="stack auth-form" onSubmit={onSubmit} noValidate>
         <label className="auth-field">
           <span>Username</span>
           <input
             className="input"
             name="username"
             autoComplete="username"
+            placeholder="your_username"
             value={username}
             onChange={(e) => setUsername(e.target.value.trim())}
             aria-invalid={!!userErr}
@@ -83,6 +93,7 @@ export function AuthForm({ initialMode = 'login', onDone }: { initialMode?: Mode
             type="password"
             name="password"
             autoComplete={isRegister ? 'new-password' : 'current-password'}
+            placeholder={isRegister ? `${PASSWORD_MIN}–${PASSWORD_MAX} characters` : '••••••••'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             aria-invalid={!!passErr}
@@ -105,6 +116,7 @@ export function AuthForm({ initialMode = 'login', onDone }: { initialMode?: Mode
               type="password"
               name="confirm"
               autoComplete="new-password"
+              placeholder="Type it again"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               aria-invalid={!!confirmErr}
@@ -122,16 +134,16 @@ export function AuthForm({ initialMode = 'login', onDone }: { initialMode?: Mode
 
         {error && (
           <div className="alert" role="alert">
-            <span>! ERR // {error}</span>
+            <span>{error}</span>
           </div>
         )}
 
-        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-          {busy ? 'Please wait…' : isRegister ? 'Register' : 'Login'}
+        <button type="submit" className="btn btn-primary auth-submit" disabled={!canSubmit}>
+          {busy ? 'Please wait…' : isRegister ? 'Create account' : 'Login'}
         </button>
       </form>
 
-      <p className="mono dim auth-switch">
+      <p className="dim auth-switch">
         {isRegister ? 'Already have an account? ' : 'No account yet? '}
         <button type="button" className="link-btn" onClick={() => switchMode(isRegister ? 'login' : 'register')}>
           {isRegister ? 'Login' : 'Register'}
