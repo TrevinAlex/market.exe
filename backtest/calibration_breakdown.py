@@ -1,15 +1,3 @@
-"""Where is the simulator's range well calibrated, and where does it fail?
-
-Splits the walk-forward forecasts from run_backtest.py by year, sector,
-volatility level, market stress and dividend windows, and reports for each group
-how often the real price landed inside P10-P90 (target 80%) and P25-P75
-(target 50%), and on which side it missed.
-
-Usage (from the repo root):
-    backend/.venv/Scripts/python.exe backtest/run_backtest.py --dump backtest/data/forecasts.json
-    backend/.venv/Scripts/python.exe backtest/calibration_breakdown.py backtest/data/forecasts.json
-Writes backtest/results_breakdown.json.
-"""
 from __future__ import annotations
 
 import json
@@ -37,8 +25,6 @@ MIN_N = 150
 
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
-    """95% interval for a proportion. Forecasts overlap in time, so the true
-    uncertainty is wider than this -- treat it as a lower bound."""
     if n == 0:
         return (math.nan, math.nan)
     p = k / n

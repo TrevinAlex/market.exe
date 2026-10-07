@@ -1,20 +1,3 @@
-"""Wrapper around the Sectors Financial API v2.
-
-Two data sources are used, each for what it is best at:
-
-* Company Report  (/v2/company/report/{symbol})
-    Rich, nested, reliable per-company fundamentals. Used for single-company
-    scoring and the simulation. We request only the 4 sections the scorer needs
-    (overview, valuation, future, financials) = 4 credits per company.
-
-* Company Screener (/v2/companies/)
-    Cheap ranking across many companies (1 credit/call). Used for the screen
-    list and the sector heatmap. Scoring fields are surfaced into query_values
-    by referencing them in order_by.
-
-Responses are cached in-process for CACHE_TTL seconds so repeated dev requests
-do not burn the hackathon credit grant.
-"""
 from __future__ import annotations
 
 import time
@@ -81,11 +64,9 @@ class SectorsClient:
 
     @staticmethod
     def _normalize_symbol(symbol: str) -> str:
-        """Report endpoint accepts a bare 4-letter ticker; strip any .JK."""
         return symbol.upper().replace(".JK", "").strip()
 
     async def company_report(self, symbol: str) -> dict[str, Any] | None:
-        """Fetch the 4 scoring sections of a company report. None if 404."""
         sym = self._normalize_symbol(symbol)
         params = {"sections": ",".join(REPORT_SECTIONS)}
         try:
@@ -99,11 +80,6 @@ class SectorsClient:
         return data
 
     async def daily_rows(self, symbol: str) -> list[dict[str, Any]]:
-        """Last 90 calendar days (~60 trading days) of daily rows, oldest first.
-
-        1 credit (cached). Each row has close, volume (shares) and market_cap.
-        Feeds the volatility model and the exit-liquidity estimate.
-        """
         sym = self._normalize_symbol(symbol)
         end = date.today()
         params = {"start": (end - timedelta(days=90)).isoformat(), "end": end.isoformat()}
@@ -112,11 +88,9 @@ class SectorsClient:
         return sorted((r for r in rows if isinstance(r, dict) and r.get("close")), key=lambda r: r.get("date", ""))
 
     async def daily_closes(self, symbol: str) -> list[float]:
-        """Closes from daily_rows (same cached call, no extra credit)."""
         return [float(r["close"]) for r in await self.daily_rows(symbol)]
 
     async def corporate_actions(self, symbol: str) -> dict[str, Any]:
-        """Dividends, AGMs, splits, rights issues... for one company. 1 credit (cached)."""
         sym = self._normalize_symbol(symbol)
         data = await self._get(f"/company/corporate-actions/{sym}/", {})
         if isinstance(data, dict):
@@ -130,12 +104,6 @@ class SectorsClient:
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-        """Structured screener query -> raw results list.
-
-        Scoring fields the frontend list needs are surfaced by ordering on them
-        and setting include_query_values; callers merge query_values into the
-        row before scoring.
-        """
         params: dict[str, Any] = {
             "order_by": order_by,
             "limit": min(limit, 200),
@@ -159,12 +127,6 @@ class SectorsClient:
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
-        """Screen companies with all scoring fields surfaced into each row.
-
-        `base_where` is the real filter (e.g. an index restriction); the scoring
-        fields are appended as benign always-true clauses so they appear in
-        query_values. Rows are returned flattened and ready for score_company.
-        """
         surface = _surface_clause()
         where = f"({base_where}) and {surface}" if base_where else surface
         return await self.screen(where=where, order_by="-market_cap", limit=limit, offset=offset)

@@ -1,18 +1,3 @@
-"""Regular user accounts: register + login with username/password.
-
-Separate from the admin login in app/auth.py:
-
-* Users are stored in a local SQLite file (USERS_DB_PATH), stdlib only.
-* Passwords are hashed with scrypt (hashlib) + a per-user random salt.
-* User tokens are HMAC-signed with a key *different* from the admin key and
-  carry ``typ="user"``, so a user token can never pass ``require_admin``.
-
-Endpoints (wired in main.py)
-----------------------------
-POST /api/auth/register   {username, password} -> token
-POST /api/auth/login      {username, password} -> token
-GET  /api/auth/me         Bearer token -> {id, username, created_at}
-"""
 from __future__ import annotations
 
 import hashlib
@@ -46,8 +31,6 @@ class User:
     uid: str = ""
 
 
-
-
 def hash_password(password: str, salt: bytes | None = None) -> str:
     salt = salt or secrets.token_bytes(16)
     dk = hashlib.scrypt(
@@ -68,8 +51,6 @@ def verify_password(password: str, stored: str) -> bool:
 
 
 _DUMMY_HASH = hash_password(secrets.token_urlsafe(16))
-
-
 
 
 class UserStore:
@@ -93,7 +74,6 @@ class UserStore:
         self._db.commit()
 
     def create(self, username: str, password: str) -> User | None:
-        """Insert a user. Returns None if the username is already taken."""
         pw_hash = hash_password(password)
         now = int(time.time())
         uid = str(uuid.uuid4())
@@ -132,8 +112,6 @@ class UserStore:
 user_store = UserStore(settings.users_db_path)
 
 
-
-
 def _sign(payload: str) -> str:
     return _b64(hmac.new(_USER_KEY, payload.encode(), hashlib.sha256).digest())
 
@@ -146,7 +124,6 @@ def issue_user_token(user: User, now: float | None = None) -> tuple[str, int]:
 
 
 def verify_user_token(token: str, now: float | None = None) -> int | None:
-    """Return the user id if the token is valid, else None."""
     try:
         payload, sig = token.split(".", 1)
     except ValueError:
@@ -175,14 +152,12 @@ def _user_from_creds(creds: HTTPAuthorizationCredentials | None) -> User | None:
 def optional_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> User | None:
-    """FastAPI dependency: the logged-in user, or None for anonymous visitors."""
     return _user_from_creds(creds)
 
 
 def require_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> User:
-    """FastAPI dependency: the logged-in user, or 401."""
     user = _user_from_creds(creds)
     if user is None:
         raise HTTPException(

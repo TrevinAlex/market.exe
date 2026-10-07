@@ -16,11 +16,8 @@ describe('formatRupiahInput', () => {
   ])('%j -> %j', (raw, out) => expect(formatRupiahInput(raw).text).toBe(out));
 
   it('keeps the caret after the same digit', () => {
-    // Typing a 5th zero at the end of "1.0000" -> "10.000", caret stays at the end.
     expect(formatRupiahInput('1.0000', 6)).toEqual({ text: '10.000', caret: 6 });
-    // Deleting the "1" from "1.000.000" (caret at 0) -> "000.000" -> "0", caret 0.
     expect(formatRupiahInput('.000.000', 0)).toEqual({ text: '0', caret: 0 });
-    // Inserting "5" after the first digit of "1.000": "15.000" -> "15.000", caret after the 5.
     expect(formatRupiahInput('15.000', 2)).toEqual({ text: '15.000', caret: 2 });
   });
 });
@@ -71,7 +68,6 @@ describe('formatIdrCompact', () => {
 
 describe('exitLiquidity', () => {
   it('uses the square-root impact rule', () => {
-    // 4% of a day's trading at 2% daily vol: 2% x sqrt(0.04) = 0.4%.
     const r = exitLiquidity(4_000_000_000, 100_000_000_000, 0.02)!;
     expect(r.shareOfDay).toBeCloseTo(0.04);
     expect(r.costPct).toBeCloseTo(0.4);

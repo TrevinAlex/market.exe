@@ -1,13 +1,3 @@
-"""The scoring engine: raw Sectors fields -> derived health score + regime.
-
-This is the module that makes the project qualify for the Market Intelligence
-track. None of the outputs here (sub-scores, composite score, regime label)
-exist in the Sectors API; they are DERIVED by normalising and combining raw
-fields.
-
-Each of the five dimensions returns a sub-score in [0, 20]. The composite is
-their sum in [0, 100]. A regime label is mapped from the composite.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
@@ -19,7 +9,6 @@ def _clamp(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 def _num(value: Any) -> float | None:
-    """Coerce a raw field to float, tolerating None / strings / missing."""
     if value is None:
         return None
     try:
@@ -29,13 +18,6 @@ def _num(value: Any) -> float | None:
 
 
 def flatten_report(report: dict[str, Any]) -> dict[str, Any]:
-    """Flatten a nested Company Report into the flat row score_company expects.
-
-    The report groups fields into sections (overview, valuation, future,
-    financials). We pull the specific fields each scoring dimension needs and
-    expose them under the same flat keys the screener rows use, so the scoring
-    math has a single input shape regardless of source.
-    """
     overview = report.get("overview") or {}
     valuation = report.get("valuation") or {}
     future = report.get("future") or {}
@@ -75,14 +57,7 @@ def flatten_report(report: dict[str, Any]) -> dict[str, Any]:
     return flat
 
 
-
 def score_valuation(c: dict[str, Any]) -> tuple[float, float]:
-    """Cheaper than a reasonable PE band = higher score.
-
-    We lack per-row peer averages in the screener's default projection, so we
-    score against an absolute IDX-reasonable PE band (5-25). Below 5 may be a
-    value trap; above 25 is expensive.
-    """
     pe = _num(c.get("pe_ttm"))
     if pe is None or pe <= 0:
         return 10.0, 0.0
@@ -91,7 +66,6 @@ def score_valuation(c: dict[str, Any]) -> tuple[float, float]:
 
 
 def score_momentum(c: dict[str, Any]) -> tuple[float, float]:
-    """Position within the 52-week range + today's drift."""
     price = _num(c.get("last_close_price"))
     hi = _num(c.get("52_w_high_price"))
     lo = _num(c.get("52_w_low_price"))
@@ -106,7 +80,6 @@ def score_momentum(c: dict[str, Any]) -> tuple[float, float]:
 
 
 def score_debt(c: dict[str, Any]) -> tuple[float, float]:
-    """Lower leverage = higher score. Uses debt-to-equity (most recent qtr)."""
     der = _num(c.get("der_mrq"))
     if der is None:
         return 10.0, 0.0
@@ -115,7 +88,6 @@ def score_debt(c: dict[str, Any]) -> tuple[float, float]:
 
 
 def score_quality(c: dict[str, Any]) -> tuple[float, float]:
-    """Return on equity as a profitability-quality proxy."""
     roe = _num(c.get("roe_ttm"))
     if roe is None:
         return 10.0, 0.0
@@ -124,7 +96,6 @@ def score_quality(c: dict[str, Any]) -> tuple[float, float]:
 
 
 def score_profitability(c: dict[str, Any]) -> tuple[float, float]:
-    """Return on assets as a capital-efficiency proxy (second quality lens)."""
     roa = _num(c.get("roa_ttm"))
     if roa is None:
         return 10.0, 0.0
@@ -137,12 +108,6 @@ def _pct(x: float) -> str:
 
 
 def explain_inputs(c: dict[str, Any]) -> dict[str, dict[str, str | None]]:
-    """The raw input behind each sub-score and the rule that maps it to points.
-
-    Lets the UI show "ROE 18.0% -> 14.4 / 20 (full marks at 25%)" so users can
-    check the score instead of taking it on faith. The rule text mirrors the
-    score_* functions above; keep the two in sync.
-    """
     pe = _num(c.get("pe_ttm"))
     der = _num(c.get("der_mrq"))
     roe = _num(c.get("roe_ttm"))
@@ -207,7 +172,6 @@ class SubScores:
     profitability: float
 
     def normalized(self) -> dict[str, float]:
-        """Each sub-score as a 0-1 value, for the simulation calibrator."""
         return {k: round(v / 20.0, 4) for k, v in asdict(self).items()}
 
 
@@ -239,15 +203,6 @@ def _year(value: Any) -> int | None:
 
 
 def fundamentals_history(report: dict[str, Any], max_years: int = 8) -> dict[str, Any]:
-    """Yearly fundamentals and the four fundamental sub-scores, per fiscal year.
-
-    Uses data already inside the Company Report (financials.historical_financial_ratio
-    and valuation.historical_valuation), so it costs no extra API credits. Momentum
-    is left out: it needs a past price range, which the report doesn't carry per year.
-
-    The score is the four sub-scores rescaled to 0-100. It DESCRIBES how the
-    company's numbers have moved; it is not a forecast (see the report card).
-    """
     financials = report.get("financials") or {}
     valuation = report.get("valuation") or {}
 
@@ -293,7 +248,6 @@ def fundamentals_history(report: dict[str, Any], max_years: int = 8) -> dict[str
 
 
 def _trend(years: list[dict[str, Any]]) -> str | None:
-    """Latest year's score vs the average of the up-to-3 years before it."""
     scored = [y["score"] for y in years if y["score"] is not None]
     if len(scored) < 2:
         return None

@@ -1,7 +1,3 @@
-"""Pinned-stock checks -- no Supabase project or Sectors credits needed.
-
-Run from backend/:  .venv\\Scripts\\python.exe test_pins.py
-"""
 import json
 import os
 import tempfile
@@ -15,11 +11,11 @@ KEY = "sb_secret_testkey"
 os.environ["SUPABASE_URL"] = "https://fake.supabase.co/rest/v1/"
 os.environ["SUPABASE_SERVICE_KEY"] = KEY
 
-import httpx  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+import httpx
+from fastapi.testclient import TestClient
 
-import app.main as main  # noqa: E402
-from app.services.pins import PinStore  # noqa: E402
+import app.main as main
+from app.services.pins import PinStore
 
 PINS: list[dict] = []
 _clock = [0]

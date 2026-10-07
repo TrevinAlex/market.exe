@@ -1,12 +1,3 @@
-"""Supabase-backed store for per-user activity history.
-
-Talks to Supabase's PostgREST endpoint (``{SUPABASE_URL}/rest/v1``) with the
-service_role key -- server side only, never sent to the browser. Table schema:
-backend/supabase/schema.sql.
-
-If SUPABASE_URL / SUPABASE_SERVICE_KEY are not set, history is disabled:
-``record`` is a no-op and ``enabled`` is False (the API returns 503).
-"""
 from __future__ import annotations
 
 import logging
@@ -23,8 +14,6 @@ KINDS = ("company", "simulation")
 
 
 def _project_root(url: str) -> str:
-    """Accept both 'https://x.supabase.co' and the REST URL
-    'https://x.supabase.co/rest/v1/' (as copied from the dashboard)."""
     url = url.strip().rstrip("/")
     if url.endswith("/rest/v1"):
         url = url[: -len("/rest/v1")]
@@ -65,8 +54,6 @@ class HistoryStore:
     async def record(
         self, user_uid: str, kind: str, symbol: str, params: dict, result: dict
     ) -> None:
-        """Insert one history row. Never raises -- history must not break the
-        request it is attached to (it runs as a background task)."""
         if not self.enabled:
             return
         row = {
@@ -86,7 +73,6 @@ class HistoryStore:
     async def list(
         self, user_uid: str, limit: int = 50, offset: int = 0, kind: str | None = None
     ) -> tuple[list[dict[str, Any]], int]:
-        """Return (rows newest-first, total count) for one user."""
         params = {
             "select": "id,kind,symbol,params,result,created_at",
             "user_uid": f"eq.{user_uid}",
@@ -103,8 +89,6 @@ class HistoryStore:
         return r.json(), total
 
     async def delete(self, user_uid: str, entry_id: int | None = None) -> int:
-        """Delete one entry (or all, if entry_id is None) owned by the user.
-        Returns the number of rows removed."""
         params = {"user_uid": f"eq.{user_uid}", "select": "id"}
         if entry_id is not None:
             params["id"] = f"eq.{entry_id}"

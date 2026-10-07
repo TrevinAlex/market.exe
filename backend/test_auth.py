@@ -1,7 +1,3 @@
-"""Auth checks -- no Sectors API key or credits needed.
-
-Run from backend/:  .venv\\Scripts\\python.exe test_auth.py
-"""
 import os
 
 os.environ["APP_PASSWORD"] = "test-password-123"
@@ -9,10 +5,10 @@ os.environ["AUTH_SECRET"] = "test-secret"
 os.environ["LOGIN_MAX_FAILURES"] = "3"
 os.environ["RATE_LIMIT_REQUESTS"] = "1000"
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from app.auth import issue_token, verify_token  # noqa: E402
-from app.main import admin_only, app  # noqa: E402
+from app.auth import issue_token, verify_token
+from app.main import admin_only, app
 
 
 @app.post("/api/admin/_test", dependencies=admin_only)

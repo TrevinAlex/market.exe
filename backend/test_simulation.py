@@ -1,7 +1,3 @@
-"""Offline tests for the simulation upgrades (no API key, no credits).
-
-Run: .venv\\Scripts\\python.exe test_simulation.py
-"""
 import asyncio
 from datetime import date
 
@@ -38,9 +34,7 @@ assert 40 < shift < 60, shift
 assert div["events"] == [{"day": 10, "type": "dividend", "amount": 50.0}]
 assert run_simulation(1000, GOOD, runs=50, seed=1, dividends=[(31, 50), (5, 0)])["events"] == []
 
-# Price-reacting agents (off by default): herding widens the range, contrarian
-# narrows it; same seed -> same market noise, so only the agents differ.
-w = lambda s: s["bands"]["p90"] - s["bands"]["p10"]  # noqa: E731
+w = lambda s: s["bands"]["p90"] - s["bands"]["p10"]
 herd = run_simulation(1000, GOOD, runs=2000, seed=1, daily_vol=0.015, herding=8)
 contra = run_simulation(1000, GOOD, runs=2000, seed=1, daily_vol=0.015, contrarian=8)
 assert w(herd) > w(base) * 1.03 > w(base) > w(contra) * 1.01, (w(herd), w(base), w(contra))
@@ -51,7 +45,7 @@ assert db["p10"][0] == db["p90"][0] == 1000
 assert all(db["p10"][d] <= db["p50"][d] <= db["p90"][d] for d in range(31))
 assert db["p90"][30] == base["bands"]["p90"] and db["p10"][30] == base["bands"]["p10"]
 
-from app.core.scoring import score_company  # noqa: E402
+from app.core.scoring import score_company
 bd = score_company({"symbol": "X", "roe_ttm": 0.18, "pe_ttm": None}).breakdown
 assert bd["quality"]["input"] == "ROE 18.0%" and "25%" in bd["quality"]["rule"]
 assert bd["valuation"]["input"] is None and bd["momentum"]["input"] is None

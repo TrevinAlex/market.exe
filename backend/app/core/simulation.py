@@ -1,18 +1,3 @@
-"""Agent-based Monte Carlo simulation.
-
-The 'What Happens Next' layer. 1000 heterogeneous agents trade a single stock
-over N days. Their behavioural mix is NOT random: it is calibrated from the
-stock's normalised sub-scores produced by the scoring engine, so a high-debt,
-weak-momentum stock gets more panic sellers and a cheap, strong-momentum stock
-gets more buyers.
-
-Runs the day-loop `runs` times (Monte Carlo) and reports the distribution of
-outcomes as percentile bands, which is the actual predictive output.
-
-Vectorised with numpy: 500 runs x 30 days x 1000 agents completes well under a
-second, so this can run on-demand per stock without burning API credits (it
-calls no API at all).
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -24,7 +9,6 @@ import numpy as np
 
 @dataclass
 class AgentMix:
-    """Fractions of the 1000-agent population, derived from sub-scores."""
     panic_sellers: float
     momentum_buyers: float
     value_buyers: float
@@ -42,14 +26,6 @@ class AgentMix:
 
 
 def calibrate_agents(sub_scores_norm: dict[str, float]) -> AgentMix:
-    """Translate normalised 0-1 sub-scores into an agent population mix.
-
-    Rationale encoded here IS the methodology judges can interrogate:
-      - weak debt score  -> more panic sellers
-      - strong momentum  -> more momentum buyers
-      - cheap valuation  -> more value buyers
-      - weak quality     -> more profit takers (less conviction to hold)
-    """
     debt = sub_scores_norm.get("debt", 0.5)
     momentum = sub_scores_norm.get("momentum", 0.5)
     valuation = sub_scores_norm.get("valuation", 0.5)
@@ -76,12 +52,6 @@ _RANGE_TO_SIGMA = float(np.sqrt(8 * 252 / np.pi))
 
 
 def estimate_daily_vol(high_52w: float | None, low_52w: float | None) -> float | None:
-    """Daily volatility estimated from the 52-week high/low.
-
-    Uses only fields the company report already has, so it costs no extra API
-    credits. Returns None when the range is missing or invalid; the result is
-    clamped to a sane band so one bad data point can't blow up the simulation.
-    """
     try:
         hi, lo = float(high_52w), float(low_52w)
     except (TypeError, ValueError):
@@ -108,11 +78,6 @@ def predict_daily_vol(
     high_52w: float | None,
     low_52w: float | None,
 ) -> tuple[float | None, str]:
-    """Best available daily-volatility forecast and the method used.
-
-    Returns (vol, "ml") when enough daily closes are given (oldest first),
-    else (range estimate, "range"), else (None, "default").
-    """
     v_range = estimate_daily_vol(high_52w, low_52w)
     px = np.array([c for c in (closes or []) if c and c > 0], dtype=float)
     if len(px) >= MIN_CLOSES_FOR_MODEL:
@@ -136,7 +101,6 @@ DEFAULT_DRIFT_SCALE = 0.0
 
 
 def agent_expected_drift(mix: AgentMix) -> float:
-    """Expected daily return the agent mix pushes the price by."""
     fr = (mix.panic_sellers, mix.momentum_buyers, mix.value_buyers, mix.profit_takers)
     return float(sum(f * i for f, i in zip(fr, _AGENT_MEAN_IMPACT)))
 
@@ -146,12 +110,6 @@ def upcoming_dividends(
     horizon_days: int,
     today: date | None = None,
 ) -> list[tuple[int, float]]:
-    """(trading_day, amount) for dividends whose ex-date falls inside the horizon.
-
-    Reads Sectors corporate actions: both ``upcoming_dividend`` and future
-    entries of ``dividend``. Trading days are counted as weekdays after today
-    (IDX holidays ignored, so a date may land a day or two early).
-    """
     ca = corporate_actions or {}
     today = today or date.today()
     items: list[dict[str, Any]] = []
@@ -179,10 +137,7 @@ def upcoming_dividends(
     return sorted(events)
 
 
-# Price-reacting agents: how many trading days of the simulated path the agents
-# look back over when deciding whether the stock is "falling" or "rising".
 REACTION_LOOKBACK = 5
-# Upper bound on the share of active (non-passive) agents after reacting.
 MAX_ACTIVE_SHARE = 0.95
 
 
@@ -192,23 +147,12 @@ def react_mix(
     herding: float,
     contrarian: float,
 ) -> np.ndarray:
-    """Per-run agent shares after reacting to the recent simulated move.
-
-    ``base`` is (4,) = panic, momentum, value, profit-taker shares; ``z`` is
-    (runs,) = the move over the last REACTION_LOOKBACK days in units of
-    expected volatility (z = -1: a typical-sized fall). Returns (runs, 4).
-
-      herding     trend followers: falls recruit panic sellers, rises recruit
-                  momentum buyers (positive feedback)
-      contrarian  falls recruit value buyers, rises recruit profit takers
-                  (negative feedback)
-    """
     down, up = np.maximum(-z, 0.0), np.maximum(z, 0.0)
     mult = np.stack([
-        1 + herding * down,      # panic sellers
-        1 + herding * up,        # momentum buyers
-        1 + contrarian * down,   # value buyers
-        1 + contrarian * up,     # profit takers
+        1 + herding * down,
+        1 + herding * up,
+        1 + contrarian * down,
+        1 + contrarian * up,
     ], axis=1)
     shares = base[None, :] * mult
     total = shares.sum(axis=1, keepdims=True)
@@ -217,19 +161,6 @@ def react_mix(
 
 @dataclass(frozen=True)
 class Scenario:
-    """A stress scenario: a changed crowd, calibrated to a real IDX episode.
-
-    For the first ``length`` trading days the agent mix gets ``shift`` added
-    (panic, momentum, value, profit-taker shares), agents herd with strength
-    ``herding``, and market noise is ``vol_mult`` times the stock's normal
-    volatility. The crowd's net push is scaled so that, before herding, it moves
-    the price by ``intensity`` daily volatilities per day (negative = selling),
-    or by ``intensity`` as a plain daily return when ``flat`` is set. Which form
-    each scenario uses was chosen by the calibration: in the 2020 crash calm
-    and volatile stocks fell about equally (flat), while in the 2020 rally the
-    volatile ones rose more (volatility-scaled). The numbers come from
-    backtest/scenario_calibration.py, fitted to how LQ45 stocks actually moved.
-    """
     id: str
     label: str
     shift: tuple[float, float, float, float]
@@ -242,15 +173,9 @@ class Scenario:
     fit_inside_p10_p90: float
     fit_n: int
     historical_median_return_pct: float
-    # True: `intensity` is a fixed daily return for every stock, not a number
-    # of the stock's own daily volatilities.
     flat: bool = False
 
 
-# Calibrated by backtest/scenario_calibration.py (see results_scenarios.json):
-# the worst and best 30-trading-day stretches for LQ45 stocks since 2017, each
-# fitted on the 40 stocks listed at the time. These are in-sample fits to one
-# episode each: they describe that episode, they do not predict the next one.
 SCENARIOS: dict[str, Scenario] = {
     "panic_2020": Scenario(
         id="panic_2020",
@@ -316,18 +241,6 @@ def run_simulation(
     scenario: Scenario | None = None,
     sample_count: int = 50,
 ) -> dict[str, Any]:
-    """Return percentile bands + a sample of paths for charting.
-
-    ``daily_vol``   market-noise volatility per trading day (predict_daily_vol);
-                    None falls back to DEFAULT_DAILY_VOL.
-    ``drift_scale`` share of the agent mix's net drift to keep (0 = none).
-    ``dividends``   known (trading_day, amount_per_share) payouts inside the
-                    horizon; the price drops by the amount on that ex-date.
-    ``herding`` / ``contrarian``
-                    price-reacting agents (see react_mix); 0 = agents ignore
-                    the price, the backtested default.
-    ``scenario``    a stress Scenario (see SCENARIOS); None = normal market.
-    """
     if current_price is None or current_price <= 0:
         current_price = 1000.0
     vol = DEFAULT_DAILY_VOL if daily_vol is None or daily_vol <= 0 else float(daily_vol)
@@ -348,9 +261,6 @@ def run_simulation(
     ])
     reacting = herding > 0 or contrarian > 0
 
-    # Stress scenario: a different crowd for the first `scn_days` days, with its
-    # push scaled to `intensity` daily volatilities. The health-based drift of
-    # the normal mix is still removed, so only the scenario moves the price.
     scn_days = 0
     if scenario is not None:
         scn_shares = _scenario_shares(base_shares, scenario.shift)
@@ -363,8 +273,6 @@ def run_simulation(
 
     paths = np.empty((runs, days + 1), dtype=np.float64)
     paths[:, 0] = current_price
-    # Noise drawn up front so it is identical with and without price-reacting
-    # agents for the same seed (a fair A/B comparison in the backtest).
     noise_all = rng.normal(0, vol, size=(days, runs))
 
     for d in range(1, days + 1):

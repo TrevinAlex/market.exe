@@ -1,4 +1,3 @@
-"""Pydantic response models for the API surface."""
 from __future__ import annotations
 
 from typing import Any
@@ -144,7 +143,6 @@ class HistoryEntry(BaseModel):
 class HistoryResponse(BaseModel):
     total: int
     results: list[HistoryEntry]
-
 
 
 class PinModel(BaseModel):

@@ -1,7 +1,3 @@
-"""User register/login checks -- no Sectors API key or credits needed.
-
-Run from backend/:  .venv\\Scripts\\python.exe test_users.py
-"""
 import os
 import tempfile
 
@@ -12,11 +8,11 @@ os.environ["AUTH_SECRET"] = "test-secret"
 os.environ["LOGIN_MAX_FAILURES"] = "3"
 os.environ["RATE_LIMIT_REQUESTS"] = "1000"
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from app.auth import verify_token  # noqa: E402
-from app.main import admin_only, app, user_only  # noqa: E402
-from app.users import User, issue_user_token, user_store  # noqa: E402
+from app.auth import verify_token
+from app.main import admin_only, app, user_only
+from app.users import User, issue_user_token, user_store
 
 
 @app.get("/api/_user_test", dependencies=user_only)

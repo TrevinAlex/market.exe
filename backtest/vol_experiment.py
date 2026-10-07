@@ -1,28 +1,3 @@
-"""Which long-run volatility input fixes the 'pulled toward the average' problem?
-
-calibration_breakdown.py showed the volatility model is too wide for calm large
-caps (BBCA 90% inside the 80% band) and too narrow for miners (BRPT 66%).
-This compares volatility-model variants walk-forward (refit each year on
-earlier data, 45-day gap), using closed-form bands so every variant is scored
-on identical forecasts in seconds instead of re-running the full simulation:
-
-    band_q = (price - dividends in window) * exp(z_q * vol * sqrt(30))
-
-That is what run_simulation produces with drift off; the baseline here should
-land close to run_backtest.py's simulated 79.5%.
-
-Variants (all keep the app's current six inputs):
-    current      the app's model today
-    +sector      IDX-IC sector of the stock (free: it's in the company report)
-    +vol250      realised vol over the last 250 trading days (needs ~1 year
-                 of daily closes = 4 calls to the 90-day Sectors endpoint)
-    +both        sector and vol250
-    stock-FE     a separate intercept per stock -- an upper bound only, can't
-                 be used for stocks outside the training set
-
-Usage: backend/.venv/Scripts/python.exe backtest/vol_experiment.py
-Uses the cached prices in backtest/data/ (no downloads, no Sectors credits).
-"""
 from __future__ import annotations
 
 import json
@@ -35,10 +10,10 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "backend"))
-from run_backtest import (  # noqa: E402
+from run_backtest import (
     FIRST_TEST_YEAR, GAP_DAYS, HORIZON, LOOKBACK, STEP, TICKERS, fetch,
 )
-from app.core.simulation import MAX_DAILY_VOL, MIN_DAILY_VOL, estimate_daily_vol  # noqa: E402
+from app.core.simulation import MAX_DAILY_VOL, MIN_DAILY_VOL, estimate_daily_vol
 
 IDXIC = {
     **dict.fromkeys(["BBCA", "BBNI", "BBRI", "BBTN", "BMRI", "BRIS", "ARTO"], "Financials"),

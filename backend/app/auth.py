@@ -1,22 +1,3 @@
-"""Admin login + signed bearer tokens for the MARKET.EXE API.
-
-The app itself is public: anyone can view scores, the heatmap and simulations
-without logging in. Only admin/edit routes are protected.
-
-Flow
-----
-1. An admin POSTs APP_PASSWORD to /api/admin/login.
-2. On success they get a short-lived bearer token (stateless, HMAC-SHA256 signed).
-3. Admin routes (``dependencies=admin_only`` in main.py) require
-   ``Authorization: Bearer <token>``.
-
-If APP_PASSWORD is not set, admin login is disabled and every admin route
-returns 401 -- it fails closed, never open.
-
-Stdlib only -- no JWT dependency. Tokens are signed with AUTH_SECRET combined
-with the password, so changing APP_PASSWORD (or AUTH_SECRET) instantly
-invalidates every token already issued.
-"""
 from __future__ import annotations
 
 import base64
@@ -54,7 +35,6 @@ def _sign(payload: str) -> str:
 
 
 def issue_token(now: float | None = None) -> tuple[str, int]:
-    """Return (token, expires_in_seconds)."""
     ttl = settings.auth_token_ttl_seconds
     payload = _b64(json.dumps({"exp": int((time.time() if now is None else now) + ttl)}).encode())
     return f"{payload}.{_sign(payload)}", ttl
@@ -85,7 +65,6 @@ def check_password(candidate: str) -> bool:
 def require_admin(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> None:
-    """FastAPI dependency: 401 unless a valid admin bearer token is present."""
     if (
         not settings.app_password
         or creds is None
@@ -110,7 +89,6 @@ def _client_ip(request: Request) -> str:
 
 
 def guard_login_attempt(request: Request) -> str:
-    """Raise 429 if this IP has too many recent failures. Returns the IP."""
     ip = _client_ip(request)
     now = time.time()
     hits = _failures[ip]

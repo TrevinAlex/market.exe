@@ -1,8 +1,3 @@
-"""Check the Supabase history setup using the values in backend/.env.
-
-Run from backend/:  .venv\\Scripts\\python.exe check_supabase.py
-Writes one test row, reads it back, deletes it. Prints the key only masked.
-"""
 import asyncio
 import uuid
 

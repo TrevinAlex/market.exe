@@ -1,34 +1,3 @@
-"""Does a high health score lead to better returns? -- using only sectors.app data.
-
-No Sectors API key and no Yahoo. Each public company page on sectors.app
-(https://sectors.app/idx/<symbol>) embeds the company report as JSON, which
-contains:
-  * yearly ROE / ROA / debt-to-equity (financials.historical_financial_ratio)
-  * yearly P/E and P/B (valuation.historical_valuation, from 2022)
-  * yearly earnings, equity and shares outstanding (financials.historical_financials)
-  * dividend history and stock splits
-
-Year-end price is rebuilt as P/E x EPS (cross-checked against P/B x book value per
-share). For BBCA this lands within ~1% of the real year-end closes.
-
-The test, without look-ahead:
-  Annual reports for fiscal year Y come out by about April of Y+1. So at the end
-  of Y+1 we score each company with its FY-Y ROE / ROA / debt, and a P/E of
-  (price at end of Y+1) / (FY-Y EPS) -- all public by then -- and measure the
-  total return (price + dividends) over the following year, Y+2.
-  Price history covers end-2022 to today, so the formation dates are
-  end-2022, end-2023, end-2024 and end-2025 (the last return runs to the
-  latest close on the page, i.e. a partial year).
-
-Momentum (one of the five sub-scores) can't be rebuilt: it needs the 52-week
-price range, which the pages don't carry per year. The score tested is the
-other four sub-scores, rescaled to 0-100 -- the same "fundamentals score" the
-app's Fundamentals history panel shows.
-
-Usage (from the repo root):
-    backend/.venv/Scripts/python.exe backtest/health_backtest.py
-Pages are cached in backtest/data/sectors_pages/; delete it to re-fetch.
-"""
 from __future__ import annotations
 
 import json
@@ -44,7 +13,7 @@ import httpx
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent / "backend"))
-from app.core.scoring import (  # noqa: E402  (the app's real scoring rules)
+from app.core.scoring import (
     score_debt,
     score_profitability,
     score_quality,
@@ -62,7 +31,6 @@ TICKERS = [
 CACHE = ROOT / "data" / "sectors_pages"
 CRAWL_DELAY = 3.0
 UA = "MARKET.EXE research backtest (hackathon project; one fetch per page, cached)"
-
 
 
 def fetch_page(sym: str, client: httpx.Client) -> str | None:
@@ -85,7 +53,6 @@ def fetch_page(sym: str, client: httpx.Client) -> str | None:
 
 
 def flight_text(html: str) -> str:
-    """Join the Next.js flight chunks (self.__next_f.push) into one string."""
     chunks = re.findall(r'self\.__next_f\.push\(\[1,"(.*?)"\]\)', html, re.S)
     return "".join(json.loads('"' + c + '"') for c in chunks)
 
@@ -184,9 +151,7 @@ def parse_company(sym: str, html: str) -> dict | None:
     }
 
 
-
 def total_return(c: dict, start: date, end: date, p0: float, p1: float) -> float:
-    """Price change plus dividends paid in (start, end], adjusted for splits."""
     split = 1.0
     for d, ratio in c["splits"]:
         if start < d <= end:
@@ -241,7 +206,6 @@ def build_rows(companies: list[dict]) -> list[dict]:
     return rows
 
 
-
 def rank(xs):
     order = sorted(range(len(xs)), key=lambda i: xs[i])
     r = [0.0] * len(xs)
@@ -293,7 +257,6 @@ def evaluate(rows: list[dict], key: str) -> dict:
 
 
 def permutation_p(rows: list[dict], key: str, n: int = 5000, seed: int = 7) -> float:
-    """Chance of a mean IC this high if scores were shuffled within each year."""
     import random
     rnd = random.Random(seed)
     observed = evaluate(rows, key)["mean_ic"]
@@ -313,7 +276,6 @@ def permutation_p(rows: list[dict], key: str, n: int = 5000, seed: int = 7) -> f
         if st.mean(ics) >= observed:
             hits += 1
     return (hits + 1) / (n + 1)
-
 
 
 def main() -> None:

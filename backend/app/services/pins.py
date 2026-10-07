@@ -1,9 +1,3 @@
-"""Supabase-backed store for each user's pinned stocks (watchlist).
-
-Table ``user_pins`` (backend/supabase/schema.sql): primary key
-(user_uid, symbol), so pinning the same stock twice is a no-op.
-Same credentials / transport rules as app/services/history.py.
-"""
 from __future__ import annotations
 
 from typing import Any
@@ -17,7 +11,7 @@ TABLE = "user_pins"
 
 
 class PinLimitError(Exception):
-    """Raised when a user already has the maximum number of pins."""
+    pass
 
 
 class PinStore:
@@ -41,7 +35,6 @@ class PinStore:
         return supabase_client(self._key, self._transport)
 
     async def list(self, user_uid: str) -> list[dict[str, Any]]:
-        """All pins for a user, oldest first: [{symbol, created_at}]."""
         params = {
             "select": "symbol,created_at",
             "user_uid": f"eq.{user_uid}",
@@ -53,8 +46,6 @@ class PinStore:
         return r.json()
 
     async def add(self, user_uid: str, symbol: str) -> bool:
-        """Pin a symbol. Returns False if it was already pinned.
-        Raises PinLimitError when the user is at max_pins."""
         pins = await self.list(user_uid)
         if any(p["symbol"] == symbol for p in pins):
             return False
@@ -71,7 +62,6 @@ class PinStore:
         return True
 
     async def remove(self, user_uid: str, symbol: str) -> bool:
-        """Unpin a symbol. Returns False if it was not pinned."""
         params = {"user_uid": f"eq.{user_uid}", "symbol": f"eq.{symbol}", "select": "symbol"}
         async with self._client() as c:
             r = await c.delete(self._base, params=params, headers={"Prefer": "return=representation"})

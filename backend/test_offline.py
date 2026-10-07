@@ -1,4 +1,3 @@
-
 from app.core.scoring import score_company
 from app.core.simulation import run_simulation
 

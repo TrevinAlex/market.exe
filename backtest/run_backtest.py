@@ -1,21 +1,3 @@
-"""Reproduce the MARKET.EXE model report card.
-
-Walk-forward backtest of the price simulator against real IDX prices:
-
-* Data: free daily closes + dividends from Yahoo Finance (no Sectors credits).
-  Downloads are cached in backtest/data/ so a re-run works offline.
-* Every 5 trading days, for every stock, start a 30-trading-day forecast using
-  only prices known on that day, then compare it with the real price 30 days on.
-* The volatility model (same features as app.core.simulation.predict_daily_vol)
-  is re-fitted each test year on earlier data only, with a 45-day gap, so no
-  forecast ever sees its own future.
-* Each forecast runs the app's real ``run_simulation`` (drift off, dividends on).
-
-Usage (from the repo root):
-    backend\\.venv\\Scripts\\python.exe backtest\\run_backtest.py
-    backend\\.venv\\Scripts\\python.exe backtest\\run_backtest.py --quick
-Writes backtest/results.json and prints a summary table.
-"""
 from __future__ import annotations
 
 import argparse
@@ -31,7 +13,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "backend"))
 
-from app.core.simulation import (  # noqa: E402  (path set above)
+from app.core.simulation import (
     DEFAULT_DAILY_VOL,
     MAX_DAILY_VOL,
     MIN_DAILY_VOL,
@@ -59,7 +41,6 @@ DATA = HERE / "data"
 
 
 def fetch(symbol: str, start: date, end: date) -> dict:
-    """Daily closes + dividends for SYMBOL.JK, cached as JSON."""
     DATA.mkdir(exist_ok=True)
     cache = DATA / f"{symbol}_{start}_{end}.json"
     if cache.exists():
@@ -72,7 +53,7 @@ def fetch(symbol: str, start: date, end: date) -> dict:
     with urllib.request.urlopen(req, timeout=30) as resp:
         res = json.load(resp)["chart"]["result"][0]
     offset = res["meta"].get("gmtoffset", 25200)
-    to_day = lambda ts: (datetime.fromtimestamp(ts + offset, tz=timezone.utc)).date().isoformat()  # noqa: E731
+    to_day = lambda ts: (datetime.fromtimestamp(ts + offset, tz=timezone.utc)).date().isoformat()
     closes = res["indicators"]["quote"][0]["close"]
     rows = [(to_day(ts), c) for ts, c in zip(res.get("timestamp") or [], closes) if c]
     divs = [(to_day(int(ts)), float(v["amount"]))
@@ -84,7 +65,6 @@ def fetch(symbol: str, start: date, end: date) -> dict:
 
 
 def build_samples(symbol: str, raw: dict) -> list[dict]:
-    """One forecast start every STEP days, with features known on that day only."""
     dates = [date.fromisoformat(d) for d in raw["dates"]]
     c = np.array(raw["closes"], dtype=float)
     n = len(c)

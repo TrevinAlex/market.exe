@@ -1,4 +1,3 @@
-
 export type Regime = 'Accumulation' | 'Recovery' | 'Distribution' | 'Stress';
 export type RegimeColor = 'green' | 'yellow' | 'amber' | 'red';
 

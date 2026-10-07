@@ -58,28 +58,16 @@ export function formatIdrCompact(value: number, signed = false): string {
   return `${sign}Rp ${n.toFixed(digits).replace(/\.0$/, '')}${s}`;
 }
 
-/** Share of a day's trading you can sell without dominating it (a common desk rule of thumb). */
 export const PARTICIPATION = 0.2;
 
 export interface ExitLiquidity {
-  /** Position as a fraction of a typical day's traded value. */
   shareOfDay: number;
-  /** Estimated price impact of selling it all within one day, in percent. */
   costPct: number;
   cost: number;
-  /** Trading days to sell it at PARTICIPATION of daily volume. */
   daysToExit: number;
   level: 'easy' | 'noticeable' | 'hard';
 }
 
-/**
- * How hard it is to get out of a position.
- *
- * Price impact uses the square-root rule from market-impact research:
- * cost ≈ daily volatility × √(order ÷ daily traded value). It is a rough,
- * widely used estimate, not something backtested on IDX here, and it ignores
- * bid-ask spread, tick size and auto-rejection limits.
- */
 export function exitLiquidity(amount: number, avgDailyValue: number, dailyVol: number): ExitLiquidity | null {
   if (!(amount > 0) || !(avgDailyValue > 0) || !(dailyVol > 0)) return null;
   const shareOfDay = amount / avgDailyValue;
@@ -93,17 +81,11 @@ export function exitLiquidity(amount: number, avgDailyValue: number, dailyVol: n
   };
 }
 
-/**
- * Reformat a typed amount with Indonesian thousands dots ("10000000" -> "10.000.000").
- * Shorthand like "10jt" or "1,5 jt" is left as typed, so parseRupiah still reads it.
- * Returns the new text and where the caret should go (after the same number of digits).
- */
 export function formatRupiahInput(text: string, caret: number = text.length): { text: string; caret: number } {
   const body = text.replace(/^\s*rp\s*/i, '');
   if (/[a-z]/i.test(body)) return { text, caret };
   const digits = body.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
   const formatted = digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  // Digits before the caret in the raw text, minus any leading zeros we dropped.
   const dropped = body.replace(/\D/g, '').length - digits.length;
   let want = Math.max(0, text.slice(0, caret).replace(/\D/g, '').length - dropped);
   let pos = 0;

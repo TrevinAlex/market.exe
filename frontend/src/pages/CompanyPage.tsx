@@ -371,7 +371,6 @@ function CompanyOverview({ score }: { score: Score }) {
   );
 }
 
-/** The numbers one view (normal market or a stress scenario) shows. */
 interface SimView {
   id: string;
   scenario: ScenarioResult | null;
@@ -517,7 +516,6 @@ function PositionRiskCalc({ sim, view }: { sim: SimulationResponse; view: SimVie
   const inputRef = useRef<HTMLInputElement>(null);
   const caretRef = useRef<number | null>(null);
   useLayoutEffect(() => {
-    // Put the caret back after the same digit once the dots are re-inserted.
     if (caretRef.current != null && inputRef.current && document.activeElement === inputRef.current) {
       inputRef.current.setSelectionRange(caretRef.current, caretRef.current);
     }

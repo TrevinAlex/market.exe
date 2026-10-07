@@ -1,30 +1,3 @@
-"""MARKET.EXE backend — FastAPI app.
-
-Endpoints
----------
-GET  /health                      liveness probe
-GET  /api/screen                  score & rank companies (optionally filtered)
-GET  /api/company/{symbol}        score a single company
-GET  /api/heatmap                 sector-level regime distribution
-POST /api/simulate/{symbol}       run the ABM Monte Carlo for one stock
-POST /api/admin/login             exchange APP_PASSWORD for an admin bearer token
-POST /api/auth/register           create a user account -> user bearer token
-POST /api/auth/login              username + password -> user bearer token
-GET  /api/auth/me                 current user (needs user bearer token)
-GET  /api/history                 logged-in user's activity (Supabase)
-DELETE /api/history[/{id}]        clear all / one history entry
-GET  /api/pins[?scores=true]      logged-in user's pinned stocks (Supabase)
-PUT  /api/pins/{symbol}           pin a stock
-DELETE /api/pins/{symbol}         unpin a stock
-
-Company lookups and simulations made while logged in are saved to history.
-
-Data routes are public. Admin/edit routes use ``dependencies=admin_only`` and
-require ``Authorization: Bearer <token>`` (see app/auth.py).
-
-The scoring + simulation logic lives in app/core; this module only wires HTTP
-to it and handles API errors from the upstream Sectors API.
-"""
 from __future__ import annotations
 
 import asyncio
@@ -105,7 +78,6 @@ _DOCS_HTML = """<!DOCTYPE html>
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html() -> HTMLResponse:
-    """Swagger UI from local assets only — no CDN, no inline script (CSP-safe)."""
     return HTMLResponse(_DOCS_HTML)
 
 app.add_middleware(SecurityHeadersMiddleware)
@@ -125,7 +97,6 @@ app.add_middleware(
 
 @app.get("/")
 async def root() -> dict:
-    """Landing index — lists the live endpoints so the base URL isn't a 404."""
     return {
         "service": "MARKET.EXE",
         "description": "IDX stock health regime scanner + agent-based scenario simulator.",
@@ -163,10 +134,6 @@ class LoginResponse(BaseModel):
 
 @app.post("/api/admin/login", response_model=LoginResponse)
 async def admin_login(body: LoginRequest, request: Request) -> LoginResponse:
-    """Exchange the admin password (APP_PASSWORD) for a bearer token.
-
-    Only admin routes need this token; all data routes are public.
-    """
     if not settings.app_password:
         raise HTTPException(status_code=503, detail="Admin login is not configured.")
     ip = guard_login_attempt(request)
@@ -176,8 +143,6 @@ async def admin_login(body: LoginRequest, request: Request) -> LoginResponse:
     clear_failures(ip)
     token, ttl = issue_token()
     return LoginResponse(access_token=token, expires_in=ttl)
-
-
 
 
 class UserCredentials(BaseModel):
@@ -206,7 +171,6 @@ def _user_auth_response(user: User) -> UserAuthResponse:
 
 @app.post("/api/auth/register", response_model=UserAuthResponse, status_code=201)
 async def user_register(body: UserCredentials) -> UserAuthResponse:
-    """Create a user account and return a bearer token (auto-login)."""
     user = user_store.create(body.username, body.password)
     if user is None:
         raise HTTPException(status_code=409, detail="Username is already taken.")
@@ -215,7 +179,6 @@ async def user_register(body: UserCredentials) -> UserAuthResponse:
 
 @app.post("/api/auth/login", response_model=UserAuthResponse)
 async def user_login(body: UserCredentials, request: Request) -> UserAuthResponse:
-    """Exchange username + password for a user bearer token."""
     ip = guard_login_attempt(request)
     user = user_store.authenticate(body.username, body.password)
     if user is None:
@@ -227,7 +190,6 @@ async def user_login(body: UserCredentials, request: Request) -> UserAuthRespons
 
 @app.get("/api/auth/me", response_model=UserModel)
 async def user_me(user: User = Depends(require_user)) -> UserModel:
-    """Return the currently logged-in user."""
     return UserModel(id=user.id, username=user.username, created_at=user.created_at)
 
 
@@ -278,7 +240,6 @@ async def screen(
     offset: int = Query(default=0, ge=0),
     sort: str = Query(default="score", description="'score' (default) or 'market_cap'."),
 ) -> ScreenResponse:
-    """Fetch companies, score every one, and return them ranked by health score."""
     index = validate_index(index)
     effective_where = f"indices in ['{index}']" if index else "market_cap IS NOT NULL"
 
@@ -331,7 +292,6 @@ async def heatmap(
     index: str | None = Query(default="LQ45", description="IDX index to aggregate, e.g. LQ45."),
     limit: int = Query(default=100, ge=1, le=200),
 ) -> HeatmapResponse:
-    """Aggregate regime distribution per sector — a macro market signal."""
     index = validate_index(index)
     where = f"indices in ['{index}']" if index else "market_cap IS NOT NULL"
     raw = await _safe_screen(where, limit, 0)
@@ -367,7 +327,6 @@ async def simulate(
     days: int = Query(default=30, ge=5, le=120),
     user: User | None = Depends(optional_user),
 ) -> SimulationResponse:
-    """Score a stock, then run the agent-based Monte Carlo scenario engine."""
     symbol = validate_symbol(symbol)
     try:
         report = await sectors_client.company_report(symbol)
@@ -403,8 +362,6 @@ async def simulate(
         dividends=upcoming_dividends(actions, days),
     )
     sim = run_simulation(**sim_args)
-    # Stress scenarios run on the same data, so switching between them in the
-    # UI needs no further request and no further credits.
     scenarios = []
     for scn in SCENARIOS.values():
         s = run_simulation(**sim_args, scenario=scn, sample_count=12)
@@ -447,8 +404,6 @@ async def simulate(
     )
 
 
-
-
 def _ticker(symbol: str) -> str:
     return symbol.upper().removesuffix(".JK")
 
@@ -476,26 +431,21 @@ async def history_list(
     offset: int = Query(default=0, ge=0),
     kind: Literal["company", "simulation"] | None = Query(default=None),
 ) -> HistoryResponse:
-    """The logged-in user's own activity, newest first."""
     rows, total = await _supabase_call(history_store.list(user.uid, limit, offset, kind))
     return HistoryResponse(total=total, results=[HistoryEntry(**r) for r in rows])
 
 
 @app.delete("/api/history", dependencies=[Depends(_require_history)])
 async def history_clear(user: User = Depends(require_user)) -> dict:
-    """Delete all of the logged-in user's history."""
     return {"deleted": await _supabase_call(history_store.delete(user.uid))}
 
 
 @app.delete("/api/history/{entry_id}", dependencies=[Depends(_require_history)])
 async def history_delete(entry_id: int, user: User = Depends(require_user)) -> dict:
-    """Delete one history entry (only if it belongs to the logged-in user)."""
     n = await _supabase_call(history_store.delete(user.uid, entry_id))
     if n == 0:
         raise HTTPException(status_code=404, detail="History entry not found.")
     return {"deleted": n}
-
-
 
 
 def _require_pins() -> None:
@@ -504,7 +454,6 @@ def _require_pins() -> None:
 
 
 async def _score_one(symbol: str) -> ScoreModel | None:
-    """Score a pinned stock. None if it can't be fetched (delisted, API down)."""
     try:
         report = await sectors_client.company_report(symbol)
     except httpx.HTTPError:
@@ -522,7 +471,6 @@ async def pins_list(
         description="Also score every pinned stock (4 Sectors credits each, cached).",
     ),
 ) -> PinsResponse:
-    """The logged-in user's pinned stocks, in the order they were pinned."""
     rows = await _supabase_call(pin_store.list(user.uid))
     pins = [PinModel(**r) for r in rows]
     if scores and pins:
@@ -539,7 +487,6 @@ async def pins_list(
 
 @app.put("/api/pins/{symbol}", dependencies=[Depends(_require_pins)])
 async def pins_add(symbol: str, user: User = Depends(require_user)) -> dict:
-    """Pin a stock (idempotent)."""
     sym = _ticker(validate_symbol(symbol))
     try:
         added = await _supabase_call(pin_store.add(user.uid, sym))
@@ -552,7 +499,6 @@ async def pins_add(symbol: str, user: User = Depends(require_user)) -> dict:
 
 @app.delete("/api/pins/{symbol}", dependencies=[Depends(_require_pins)])
 async def pins_remove(symbol: str, user: User = Depends(require_user)) -> dict:
-    """Unpin a stock (idempotent)."""
     sym = _ticker(validate_symbol(symbol))
     removed = await _supabase_call(pin_store.remove(user.uid, sym))
     return {"symbol": sym, "pinned": False, "removed": removed}

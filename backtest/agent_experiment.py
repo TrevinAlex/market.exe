@@ -1,24 +1,3 @@
-"""Do price-reacting agents make the simulated ranges more accurate?
-
-Today the agents ignore the price. This tests two kinds of reaction, each at
-several strengths, against agents that ignore the price (the app's default):
-
-    herding     falls recruit panic sellers, rises recruit momentum buyers
-    contrarian  falls recruit value buyers, rises recruit profit takers
-
-Same walk-forward setup as run_backtest.py (volatility model refitted each
-year on earlier data with a 45-day gap; app's real run_simulation; dividends
-on). Every variant uses the same seed per forecast, so the market noise is
-identical and only the agents differ.
-
-To avoid picking a winner by luck, strengths are chosen on 2019-2022 only and
-then judged on 2023-2026, which played no part in the choice.
-
-Usage: backend/.venv/Scripts/python.exe backtest/agent_experiment.py [RUNS] [YEAR]
-(RUNS default 200; YEAR computes and caches one test year, so the ~20-minute
-job can be split into short pieces.)
-Uses the cached prices in backtest/data/ (no downloads, no Sectors credits).
-"""
 from __future__ import annotations
 
 import json
@@ -32,10 +11,10 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "backend"))
-from run_backtest import (  # noqa: E402
+from run_backtest import (
     FIRST_TEST_YEAR, GAP_DAYS, HORIZON, NEUTRAL, TICKERS, build_samples, fetch,
 )
-from app.core.simulation import MAX_DAILY_VOL, MIN_DAILY_VOL, run_simulation  # noqa: E402
+from app.core.simulation import MAX_DAILY_VOL, MIN_DAILY_VOL, run_simulation
 
 TUNE_YEARS = range(2019, 2023)
 HOLDOUT_YEARS = range(2023, 2027)
@@ -61,7 +40,6 @@ def score(rows: list[dict], key: str) -> dict:
 
 
 def paired_se(rows: list[dict], key: str, base: str = "none") -> float:
-    """Standard error of the pinball difference vs ``base`` (same forecasts)."""
     p = np.array([r["price"] for r in rows])
     a = np.array([r["actual"] for r in rows])
 
@@ -71,13 +49,12 @@ def paired_se(rows: list[dict], key: str, base: str = "none") -> float:
         return np.mean(np.maximum(QS * err, (QS - 1) * err), axis=1)
 
     diff = per_row(key) - per_row(base)
-    # forecasts overlap (5-day step, 30-day horizon): ~6x fewer independent ones
     return float(np.std(diff) / np.sqrt(len(diff) / 6))
 
 
 def main() -> None:
     runs = int(sys.argv[1]) if len(sys.argv) > 1 else 200
-    only_year = int(sys.argv[2]) if len(sys.argv) > 2 else None  # compute one year, cache it, stop
+    only_year = int(sys.argv[2]) if len(sys.argv) > 2 else None
     agents = 50
     variants = {"none": (0.0, 0.0)}
     variants.update({f"herd {s:g}": (float(s), 0.0) for s in STRENGTHS})

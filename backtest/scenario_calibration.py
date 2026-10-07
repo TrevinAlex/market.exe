@@ -1,19 +1,3 @@
-"""Calibrate the stress scenarios to real IDX episodes.
-
-1. Finds the worst and the best 30-trading-day stretch for the 45 LQ45 stocks
-   (by the median stock's return) in the cached daily prices.
-2. For each stretch, simulates every stock from the day before it started,
-   with the volatility the app would have predicted that day, and grid-searches
-   the scenario's crowd push, volatility multiplier and herding so the
-   simulated ranges best fit what actually happened (pinball loss, the same
-   accuracy score the report card uses).
-
-Uses only the price cache in backtest/data (no downloads, no API credits).
-Output: results_scenarios.json, whose fitted numbers are pasted into
-SCENARIOS in backend/app/core/simulation.py.
-
-    python backtest/scenario_calibration.py
-"""
 from __future__ import annotations
 
 import itertools
@@ -28,15 +12,14 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "backend"))
 
-from app.core.simulation import Scenario, predict_daily_vol, run_simulation  # noqa: E402
-from run_backtest import TICKERS  # noqa: E402
+from app.core.simulation import Scenario, predict_daily_vol, run_simulation
+from run_backtest import TICKERS
 
 DATA = HERE / "data"
 HORIZON = 30
 NEUTRAL = {k: 0.5 for k in ("valuation", "momentum", "debt", "quality", "profitability")}
 QUANTILES = (0.10, 0.25, 0.50, 0.75, 0.90)
 
-# The crowd change each scenario applies: (panic, momentum, value, profit-taker).
 SHIFTS = {
     "panic": (0.25, -0.05, -0.04, 0.0),
     "rally": (-0.05, 0.25, 0.0, -0.04),
@@ -58,7 +41,6 @@ def load() -> dict[str, dict]:
 
 
 def find_episodes(prices: dict[str, dict]) -> dict[str, str]:
-    """Start date of the worst and best 30-day median-stock return."""
     all_dates = sorted(set().union(*(set(p["dates"]) for p in prices.values())))
     all_dates = [d for d in all_dates if d >= "2017-01-01"]
     med = {}
@@ -133,13 +115,12 @@ def fit(name: str, samples: list[dict], flat: bool = False) -> dict:
         if best is None or res["pinball"] < best[1]["pinball"]:
             best = ((inten, vm, h), res)
     (inten, vm, h), res = best
-    # Re-score the winner with the app's full settings.
     final = score(samples, replace(base, intensity=inten, vol_mult=vm, herding=h), runs=500, agents=1000)
     return {"intensity": inten, "vol_mult": vm, "herding": h, "flat": flat, **final}
 
 
 def main() -> None:
-    only = sys.argv[1:]  # e.g. "panic" to fit one scenario
+    only = sys.argv[1:]
     prices = load()
     ep = find_episodes(prices)
     med = ep.pop("_median")

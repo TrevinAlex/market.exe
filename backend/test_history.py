@@ -1,10 +1,3 @@
-"""User history checks -- no Supabase project or Sectors credits needed.
-
-Supabase's PostgREST API is replaced by an in-memory fake (httpx.MockTransport)
-that implements just the filters HistoryStore uses.
-
-Run from backend/:  .venv\\Scripts\\python.exe test_history.py
-"""
 import json
 import os
 import tempfile
@@ -18,11 +11,11 @@ os.environ["SUPABASE_URL"] = "https://fake.supabase.co"
 KEY = "sb_secret_testkey"
 os.environ["SUPABASE_SERVICE_KEY"] = KEY
 
-import httpx  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+import httpx
+from fastapi.testclient import TestClient
 
-import app.main as main  # noqa: E402
-from app.services.history import HistoryStore  # noqa: E402
+import app.main as main
+from app.services.history import HistoryStore
 
 ROWS: list[dict] = []
 _next_id = [1]

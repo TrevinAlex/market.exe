@@ -9,6 +9,8 @@ MARKET.EXE turns raw [Sectors](https://sectors.app) data into signals the API do
 - **Market regime.** Each stock is labelled Accumulation, Recovery, Distribution or Stress.
 - **Sector heatmap.** Which LQ45 sectors are under stress.
 - **30-day scenario simulator.** A backtested range of where the price could realistically be in 30 trading days, with a position risk calculator in Rupiah.
+- **Stress scenarios.** One click replays a 2020-style panic or rally on the stock, sized to how LQ45 stocks really moved, so you can see what a crash would do to your money.
+- **Exit liquidity.** How much of a typical day's trading your amount is, and roughly what selling it quickly would cost.
 - **Fundamentals history.** Each company's yearly ROE, ROA, debt/equity and P/E from the Sectors Company Report, scored with the same rules, so you can see whether its health is improving or deteriorating.
 - **Model report card.** How accurate the simulator was against real prices, including where it's weak, plus a glossary of every term in the app.
 
@@ -60,12 +62,14 @@ market.exe/
 │   ├── app/
 │   │   ├── main.py            # routes
 │   │   ├── core/scoring.py    # 5 sub-scores -> health score -> regime
-│   │   ├── core/simulation.py # agent-based Monte Carlo + volatility model + dividends
+│   │   ├── core/simulation.py # agent-based Monte Carlo + volatility model + dividends + stress scenarios
+│   │   ├── core/liquidity.py  # typical daily trading value for the exit-liquidity estimate
 │   │   ├── services/          # Sectors client (cached), Supabase history + pins
 │   │   ├── auth.py, users.py  # user accounts (SQLite) and admin login
 │   │   └── security.py        # rate limit, security headers, CORS
 │   ├── supabase/schema.sql    # tables for history and pins
 │   └── test_*.py              # offline tests (no API key or credits needed)
+├── backtest/                  # walk-forward backtest, calibration and experiment scripts
 └── frontend/                  # React, Vite, TypeScript (see frontend/README.md)
     └── src/
         ├── pages/             # Screener, Heatmap, Company, Report card, Pinned, History
@@ -108,6 +112,27 @@ Missing data gets a neutral 10/20 and lowers the score's *confidence* (data cove
 
 The output is the P10 / P25 / P50 / P75 / P90 price range, sample paths for the fan chart, the agent mix and any dividend events.
 
+### Stress scenarios
+
+The same request also runs two what-if scenarios, so switching between them in the app costs no extra credits. For the first 30 trading days the crowd changes:
+
+| Scenario | What the agents do | Fitted to | Median LQ45 stock |
+|---|---|---|---|
+| 2020-style panic | Panic sellers +25 points, daily moves 2× wilder | 11 Feb – 24 Mar 2020 | −44% |
+| 2020-style rally | Momentum buyers +25 points | 4 Nov – 17 Dec 2020 | +32% |
+
+`backtest/scenario_calibration.py` found these as the worst and best 30-day stretches for LQ45 since 2017, then fitted each scenario's size to the 40 stocks listed at the time. In the crash, calm and volatile stocks fell about equally, so the panic hits every stock by the same percentage. In the rally, volatile stocks rose more, so the rally scales with each stock's own volatility. The calibration tested both forms for each scenario and kept the better fit.
+
+### Exit liquidity
+
+The daily price call the simulation already makes also returns trading volume. The app takes the median traded value of the last 20 trading days and, for the amount in the risk calculator, estimates:
+
+- your amount as a share of a typical day's trading;
+- the price impact of selling it all in one day, using the square-root rule from market-impact research (daily volatility × √(amount ÷ daily traded value));
+- how many days it takes to sell at no more than 20% of each day's trading.
+
+It's a rough estimate: it hasn't been backtested on IDX and ignores bid-ask spread and auto-rejection limits.
+
 ### Backtest results (shown on the Report card tab)
 
 **Setup:** a walk-forward test with 15,426 forecasts on 45 LQ45 stocks, 2019–2026, using daily prices. Each year was predicted with models trained only on earlier data.
@@ -120,6 +145,8 @@ The output is the P10 / P25 / P50 / P75 / P90 price range, sample paths for the 
 | Dividend windows, median forecast bias | +2.4% → **−1.3%** | ~0% |
 | 2020 COVID crash, inside P10–P90 | 65% (other years 79–85%) | 80% |
 | Predicting up vs down (agents, logistic regression, boosted trees) | ≈ 50% | > 50% |
+| Agents that react to the price (herding, contrarian) | no gain, rejected | better than ignoring the price |
+| Stress scenarios, inside P10–P90 in their 2020 episode | panic 32/40 · rally 26/40 | 80% |
 
 For comparison, the first version of the simulator, with one fixed volatility for every stock, caught only 39% of outcomes in its "80%" range.
 
@@ -131,18 +158,22 @@ We tested direction too. Three different models, from simple to machine learning
 - **Crashes.** In the first weeks of a crash, volatility jumps faster than any model built on recent prices can see. That's why 2020 caught only 65%.
 - **Stock by stock.** Accuracy varies by stock. Calm large caps land inside the range more often than 80% (BBCA 90%), while stocks that trended hard land inside it less often (ARTO 65%, BRPT 67% during the 2020–21 boom).
 - **Rejected fixes.** We tested adding 1-year volatility, the sector, and a separate setting per stock to the volatility model. None improved overall accuracy, so none were shipped. The remaining misses come from sustained trends, which is a direction problem, not a volatility one.
+- **Price-reacting agents.** We let agents react to the last 5 days, either herding (falls recruit panic sellers) or contrarian (falls recruit value buyers). Strengths were chosen on 2019–2022 and judged on 2023–2026. Herding made the ranges worse, and contrarian was within random noise while pulling the 80% range below target. The normal forecast keeps agents that ignore the price.
+- **Scenarios are fitted, not predicted.** Each stress scenario is fitted to one episode, so the 32/40 and 26/40 are in-sample: they show the scenario reproduces that episode, not that it predicts the next one.
 
 The health score is a transparent snapshot of a company's financial condition today, built from five clearly defined measures, and the Fundamentals history panel shows how it has moved year by year. Testing whether it predicts future returns needs each year's fundamentals for every stock (about 90 Sectors credits for LQ45), and that's the next step on the roadmap.
 
 **Caveat:** the test used stocks in LQ45 today, which slightly favours stocks that did well (survivorship bias).
 
-To reproduce the backtest (free Yahoo Finance prices, no Sectors credits), run from the repo root:
+To reproduce the backtest (no Sectors credits needed), run from the repo root:
 
 ```powershell
 backend\.venv\Scripts\python.exe backtest\run_backtest.py --quick   # 8 stocks, about 2 minutes
 backend\.venv\Scripts\python.exe backtest\run_backtest.py --dump backtest\data\forecasts.json   # all 45 stocks, about 10 minutes
 backend\.venv\Scripts\python.exe backtest\calibration_breakdown.py   # accuracy by year, sector, volatility and stock
 backend\.venv\Scripts\python.exe backtest\vol_experiment.py          # the rejected volatility-model variants
+backend\.venv\Scripts\python.exe backtest\agent_experiment.py        # the rejected price-reacting agents
+backend\.venv\Scripts\python.exe backtest\scenario_calibration.py    # fits the stress scenarios
 ```
 
 `run_backtest.py` prints the report-card metrics and writes them to `backtest/results.json`. The numbers in the table above come from that full 45-stock run. Price downloads are cached in `backtest/data/` (git-ignored). The volatility model's coefficients used by the app are hardcoded in `simulation.py` (`_VOL_MODEL`).
@@ -161,6 +192,8 @@ Indonesian investors already have good free tools. MARKET.EXE doesn't try to rep
 | Forward-looking 30-day price range | Analyst targets only | Volatility indicators | Analyst targets / fair value | ✅ Simulated range |
 | That range checked against real outcomes | ❌ | ❌ | ❌ | ✅ 79.5% inside the 80% range |
 | Risk shown in Rupiah for your amount | ❌ | ❌ | ❌ | ✅ Position risk calculator |
+| "What would a 2020 crash do to me?" | ❌ | ❌ | ❌ | ✅ Stress scenarios fitted to real 2020 moves |
+| How hard it is to sell your amount | ❌ | ❌ | ❌ | ✅ Exit liquidity estimate |
 | Known dividends built into the forecast | ❌ | ❌ | ❌ | ✅ |
 | Says openly what it can't predict | — | — | — | ✅ Report card |
 
@@ -198,7 +231,7 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). They
 |---|---|---|
 | Screener / heatmap load | 1 | One structured screener call |
 | Company page | 4 | Company report with 4 sections |
-| Run simulation | 6 | Company report (4) + 90-day daily prices (1) + corporate actions (1). Only 2 if the company page was just opened, since the report is then cached |
+| Run simulation | 6 | Company report (4) + 90-day daily prices and volume (1) + corporate actions (1). Only 2 if the company page was just opened, since the report is then cached. The stress scenarios and exit liquidity reuse the same data |
 
 Every response is cached in the backend for `CACHE_TTL_SECONDS` (default 15 minutes), so repeat views are free. The cache is cleared when the backend restarts.
 
