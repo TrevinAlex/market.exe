@@ -65,7 +65,7 @@ market.exe/
 │   │   ├── core/simulation.py # agent-based Monte Carlo + volatility model + dividends + stress scenarios
 │   │   ├── core/liquidity.py  # typical daily trading value for the exit-liquidity estimate
 │   │   ├── services/          # Sectors client (cached), Supabase history + pins
-│   │   ├── auth.py, users.py  # user accounts (SQLite) and admin login
+│   │   ├── auth.py, users.py  # user accounts (SQLite) and login brute-force guard
 │   │   └── security.py        # rate limit, security headers, CORS
 │   ├── supabase/schema.sql    # tables for history and pins
 │   └── test_*.py              # offline tests (no API key or credits needed)
@@ -218,12 +218,10 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). They
 | GET | `/api/auth/me` | Current user |
 | GET / DELETE | `/api/history[/{id}]` | The user's company and simulation history |
 | GET / PUT / DELETE | `/api/pins[/{symbol}]` | The user's pinned stocks |
-| POST | `/api/admin/login` | Admin token for admin-only routes |
 
 **Access:**
 - **Public:** the data routes, so no account is needed to browse.
 - **Account required:** history and pins.
-- **Admin password (`APP_PASSWORD`):** routes marked `admin_only`.
 
 ## Sectors API credits
 
@@ -244,7 +242,6 @@ Every response is cached in the backend for `CACHE_TTL_SECONDS` (default 15 minu
 | `CACHE_TTL_SECONDS` | Response cache lifetime |
 | `ALLOWED_ORIGINS` | CORS origins allowed to call the API |
 | `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS` | Per-IP rate limit |
-| `APP_PASSWORD` | Admin password; leave empty to disable admin login |
 | `AUTH_SECRET` | Token signing key; set it so logins survive restarts |
 | `AUTH_TOKEN_TTL_SECONDS`, `LOGIN_MAX_FAILURES`, `LOGIN_WINDOW_SECONDS` | Token lifetime and brute-force guard |
 | `USERS_DB_PATH` | SQLite file for user accounts (created automatically) |

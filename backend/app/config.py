@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = 60
     debug: bool = False
 
-    app_password: str = ""
     auth_secret: str = ""
     auth_token_ttl_seconds: int = 43200
     login_max_failures: int = 5

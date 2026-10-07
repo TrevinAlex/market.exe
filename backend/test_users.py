@@ -3,25 +3,18 @@ import tempfile
 
 _tmp = tempfile.mkdtemp()
 os.environ["USERS_DB_PATH"] = os.path.join(_tmp, "users_test.db")
-os.environ["APP_PASSWORD"] = "test-password-123"
 os.environ["AUTH_SECRET"] = "test-secret"
 os.environ["LOGIN_MAX_FAILURES"] = "3"
 os.environ["RATE_LIMIT_REQUESTS"] = "1000"
 
 from fastapi.testclient import TestClient
 
-from app.auth import verify_token
-from app.main import admin_only, app, user_only
+from app.main import app, user_only
 from app.users import User, issue_user_token, user_store
 
 
 @app.get("/api/_user_test", dependencies=user_only)
 async def _user_test() -> dict:
-    return {"ok": True}
-
-
-@app.post("/api/admin/_test2", dependencies=admin_only)
-async def _admin_test() -> dict:
     return {"ok": True}
 
 
@@ -56,13 +49,10 @@ assert c.get("/api/auth/me", headers={"Authorization": f"Bearer {expired}"}).sta
 ghost, _ = issue_user_token(User(id=999999, username="ghost", created_at=0))
 assert c.get("/api/auth/me", headers={"Authorization": f"Bearer {ghost}"}).status_code == 401
 
-assert not verify_token(tok)
-assert c.post("/api/admin/_test2", headers=h).status_code == 401
-
 assert c.get("/api/company/BB!!").status_code == 400
 
 for _ in range(3):
     c.post("/api/auth/login", json={**creds, "password": "wrong-pass"})
 assert c.post("/api/auth/login", json=creds).status_code == 429
 
-print("OK -- users: register, duplicate, validation, login, /me, token checks, admin isolation, brute-force guard.")
+print("OK -- users: register, duplicate, validation, login, /me, token checks, brute-force guard.")

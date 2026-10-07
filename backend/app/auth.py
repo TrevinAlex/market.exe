@@ -1,25 +1,18 @@
 from __future__ import annotations
 
 import base64
-import hashlib
-import hmac
-import json
 import logging
 import secrets
 import time
 from collections import defaultdict, deque
 
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import HTTPException, Request
 
 from app.config import settings
 
 log = logging.getLogger("market.exe.auth")
 
 _SECRET = (settings.auth_secret or secrets.token_urlsafe(32)).encode()
-_SIGNING_KEY = hashlib.sha256(_SECRET + b"|" + settings.app_password.encode()).digest()
-
-_bearer = HTTPBearer(auto_error=False, description="Token from POST /api/auth/login")
 
 
 def _b64(data: bytes) -> str:
@@ -28,54 +21,6 @@ def _b64(data: bytes) -> str:
 
 def _unb64(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
-
-
-def _sign(payload: str) -> str:
-    return _b64(hmac.new(_SIGNING_KEY, payload.encode(), hashlib.sha256).digest())
-
-
-def issue_token(now: float | None = None) -> tuple[str, int]:
-    ttl = settings.auth_token_ttl_seconds
-    payload = _b64(json.dumps({"exp": int((time.time() if now is None else now) + ttl)}).encode())
-    return f"{payload}.{_sign(payload)}", ttl
-
-
-def verify_token(token: str, now: float | None = None) -> bool:
-    try:
-        payload, sig = token.split(".", 1)
-    except ValueError:
-        return False
-    if not hmac.compare_digest(sig, _sign(payload)):
-        return False
-    try:
-        exp = int(json.loads(_unb64(payload))["exp"])
-    except (ValueError, KeyError, TypeError):
-        return False
-    return exp > (time.time() if now is None else now)
-
-
-def check_password(candidate: str) -> bool:
-    if not settings.app_password:
-        return False
-    want = hashlib.sha256(settings.app_password.encode()).digest()
-    got = hashlib.sha256(candidate.encode()).digest()
-    return hmac.compare_digest(want, got)
-
-
-def require_admin(
-    creds: HTTPAuthorizationCredentials | None = Depends(_bearer),
-) -> None:
-    if (
-        not settings.app_password
-        or creds is None
-        or creds.scheme.lower() != "bearer"
-        or not verify_token(creds.credentials)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Admin login required.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
 
 
 _failures: dict[str, deque[float]] = defaultdict(deque)

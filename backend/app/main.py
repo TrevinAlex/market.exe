@@ -26,12 +26,9 @@ from app.api.schemas import (
     SimulationResponse,
 )
 from app.auth import (
-    check_password,
     clear_failures,
     guard_login_attempt,
-    issue_token,
     record_failure,
-    require_admin,
 )
 from app.config import settings
 from app.core.liquidity import liquidity_from_rows
@@ -101,7 +98,6 @@ async def root() -> dict:
         "service": "MARKET.EXE",
         "description": "IDX stock health regime scanner + agent-based scenario simulator.",
         "docs": "/docs",
-        "admin": "POST /api/admin/login {\"password\": ...} -> token for admin-only routes",
         "auth": {
             "register": "POST /api/auth/register {\"username\": ..., \"password\": ...}",
             "login": "POST /api/auth/login {\"username\": ..., \"password\": ...}",
@@ -122,27 +118,10 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "service": "market.exe"}
 
 
-class LoginRequest(BaseModel):
-    password: str = Field(min_length=1, max_length=256)
-
-
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
-
-
-@app.post("/api/admin/login", response_model=LoginResponse)
-async def admin_login(body: LoginRequest, request: Request) -> LoginResponse:
-    if not settings.app_password:
-        raise HTTPException(status_code=503, detail="Admin login is not configured.")
-    ip = guard_login_attempt(request)
-    if not check_password(body.password):
-        record_failure(ip)
-        raise HTTPException(status_code=401, detail="Wrong password.")
-    clear_failures(ip)
-    token, ttl = issue_token()
-    return LoginResponse(access_token=token, expires_in=ttl)
 
 
 class UserCredentials(BaseModel):
@@ -194,8 +173,6 @@ async def user_me(user: User = Depends(require_user)) -> UserModel:
 
 
 user_only = [Depends(require_user)]
-
-admin_only = [Depends(require_admin)]
 
 
 _log = logging.getLogger("uvicorn.error")
