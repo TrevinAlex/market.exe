@@ -107,7 +107,7 @@ async def root() -> dict:
             "liveness": "GET /health",
             "screen": "GET /api/screen?index=LQ45&limit=10",
             "company": "GET /api/company/{symbol}  e.g. /api/company/BBCA",
-            "heatmap": "GET /api/heatmap?index=LQ45",
+            "heatmap": "GET /api/heatmap  (top 200 by market cap; ?index=LQ45 to restrict)",
             "simulate": "POST /api/simulate/{symbol}?runs=500&days=30",
         },
     }
@@ -253,15 +253,25 @@ async def company(
 ) -> ScoreModel:
     symbol = validate_symbol(symbol)
     try:
-        report = await sectors_client.company_report(symbol)
-    except httpx.HTTPError as e:
-        _log_sectors_error(e)
-        raise HTTPException(
-            status_code=502, detail=safe_detail("Sectors API request failed", e)
-        ) from e
-    if not report:
-        raise HTTPException(status_code=404, detail=f"Company '{symbol}' not found on IDX.")
-    score = ScoreModel(**score_company(await _score_inputs(symbol, report)).to_dict())
+        row = await sectors_client.screen_one(symbol)
+    except Exception as e:
+        if isinstance(e, httpx.HTTPError):
+            _log_sectors_error(e)
+        row = None
+    if row:
+        flat = row
+    else:
+        try:
+            report = await sectors_client.company_report(symbol)
+        except httpx.HTTPError as e:
+            _log_sectors_error(e)
+            raise HTTPException(
+                status_code=502, detail=safe_detail("Sectors API request failed", e)
+            ) from e
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Company '{symbol}' not found on IDX.")
+        flat = flatten_report(report)
+    score = ScoreModel(**score_company(flat).to_dict())
     if user:
         background.add_task(
             history_store.record,
@@ -281,8 +291,11 @@ async def company(
 
 @app.get("/api/heatmap", response_model=HeatmapResponse)
 async def heatmap(
-    index: str | None = Query(default="LQ45", description="IDX index to aggregate, e.g. LQ45."),
-    limit: int = Query(default=100, ge=1, le=200),
+    index: str | None = Query(
+        default=None,
+        description="Restrict to an IDX index like LQ45. Omit for the largest stocks by market cap.",
+    ),
+    limit: int = Query(default=200, ge=1, le=200),
 ) -> HeatmapResponse:
     index = validate_index(index)
     where = f"indices in ['{index}']" if index else "market_cap IS NOT NULL"
@@ -460,19 +473,31 @@ async def pins_list(
     user: User = Depends(require_user),
     scores: bool = Query(
         default=False,
-        description="Also score every pinned stock (5 Sectors credits each, cached).",
+        description="Also score every pinned stock (1 Sectors credit for all of them, cached).",
     ),
 ) -> PinsResponse:
     rows = await _supabase_call(pin_store.list(user.uid))
     pins = [PinModel(**r) for r in rows]
     if scores and pins:
+        try:
+            batch = await sectors_client.screen_many([p.symbol for p in pins])
+        except Exception as e:
+            if isinstance(e, httpx.HTTPError):
+                _log_sectors_error(e)
+            batch = []
+        by_ticker = {_ticker(str(r.get("symbol", ""))): r for r in batch}
+        missing = [p for p in pins if _ticker(p.symbol) not in by_ticker]
+        for pin in pins:
+            row = by_ticker.get(_ticker(pin.symbol))
+            if row:
+                pin.score = ScoreModel(**score_company(row).to_dict())
         sem = asyncio.Semaphore(5)
 
         async def bounded(sym: str):
             async with sem:
                 return await _score_one(sym)
 
-        for pin, score in zip(pins, await asyncio.gather(*(bounded(p.symbol) for p in pins))):
+        for pin, score in zip(missing, await asyncio.gather(*(bounded(p.symbol) for p in missing))):
             pin.score = score
     return PinsResponse(max_pins=pin_store.max_pins, pins=pins)
 

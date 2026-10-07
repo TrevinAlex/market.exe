@@ -5,16 +5,18 @@ import { RegimeTipText } from '../components/explainers';
 import { useHeatmap } from '../hooks/useHeatmap';
 import { REGIMES, REGIME_COLOR_KEY, colorHex } from '../theme/tokens';
 
-const INDEX = 'LQ45';
+const LIMIT = 200;
+const UNIVERSE = `Top ${LIMIT} IDX stocks by market cap`;
 
 export function HeatmapPage() {
-  const { data, error, loading, reload } = useHeatmap(INDEX);
+  const { data, error, loading, reload } = useHeatmap(null, LIMIT);
   const sectors = data?.sectors ?? [];
   const stressed = sectors.filter((s) => s.stressed_pct >= SECTOR_STRESS_PCT).length;
+  const stocks = sectors.reduce((n, s) => n + s.total, 0);
 
   return (
     <div className="stack">
-      {loading && <Scanning label={`MAPPING ${INDEX} SECTORS...`} />}
+      {loading && <Scanning label={`MAPPING THE TOP ${LIMIT} IDX STOCKS...`} />}
       {error != null && !loading && <ErrorAlert error={error} onRetry={reload} />}
 
       {data && !loading && (
@@ -29,7 +31,7 @@ export function HeatmapPage() {
               </Tip>
             </h2>
             <p className="note">
-              {INDEX} · a sector is "under stress" when ≥{SECTOR_STRESS_PCT}% of its stocks are in Stress or
+              {UNIVERSE} ({stocks} scored) · a sector is "under stress" when ≥{SECTOR_STRESS_PCT}% of its stocks are in Stress or
               Distribution. Tile colour follows the sector's average health score (red → cyan). Sorted most stressed first.
             </p>
             <ul className="legend" style={{ marginTop: 8 }} aria-label="Regime colour legend">

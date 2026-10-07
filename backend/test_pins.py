@@ -98,10 +98,31 @@ assert c.put("/api/pins/BB'1", headers=alice).status_code == 400
 assert c.put("/api/pins/GONE", headers=alice).status_code == 200
 assert c.put("/api/pins/ASII", headers=alice).status_code == 409
 
+reports_fetched = []
+batch_calls = []
+
+
+async def _batch(symbols):
+    batch_calls.append(sorted(symbols))
+    return [{**(await _fake_report(s)), "company_name": f"PT {s} Tbk. (screener)"} for s in symbols if s == "BBCA"]
+
+
+_orig_report = main.sectors_client.company_report
+
+
+async def _counting_report(symbol):
+    reports_fetched.append(symbol)
+    return await _orig_report(symbol)
+
+
+main.sectors_client.screen_many = _batch
+main.sectors_client.company_report = _counting_report
 r = c.get("/api/pins?scores=true", headers=alice).json()
 by = {p["symbol"]: p["score"] for p in r["pins"]}
-assert by["BBCA"]["company_name"] == "PT BBCA Tbk." and by["TLKM"]["composite"] > 0
+assert by["BBCA"]["company_name"] == "PT BBCA Tbk. (screener)" and by["TLKM"]["composite"] > 0
 assert by["GONE"] is None
+assert len(batch_calls) == 1 and batch_calls[0] == ["BBCA", "GONE", "TLKM"], batch_calls
+assert sorted(reports_fetched) == ["GONE", "TLKM"], reports_fetched
 
 assert c.get("/api/pins", headers=bob).json()["pins"] == []
 assert c.delete("/api/pins/BBCA", headers=bob).json()["removed"] is False

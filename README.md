@@ -7,7 +7,7 @@ MARKET.EXE turns raw [Sectors](https://sectors.app) data into signals the API do
 
 - **Health score (0–100), shown as a game HP bar.** Five derived sub-scores combined into one number.
 - **Market regime.** Each stock is labelled Accumulation, Recovery, Distribution or Stress.
-- **Sector heatmap.** Which LQ45 sectors are under stress.
+- **Sector heatmap.** Which sectors are under stress, across the 200 largest IDX stocks by market cap.
 - **30-day scenario simulator.** A backtested range of where the price could realistically be in 30 trading days, with a position risk calculator in Rupiah.
 - **Stress scenarios.** One click replays a market crash or market rally on the stock, sized to how LQ45 stocks really moved in 2020, so you can see what a crash would do to your money.
 - **Exit liquidity.** How much of a typical day's trading your amount is, and roughly what selling it quickly would cost.
@@ -212,7 +212,7 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). They
 | GET | `/health` | Liveness check |
 | GET | `/api/screen?index=LQ45&limit=50` | Score and rank an index |
 | GET | `/api/company/{symbol}` | Score one company, e.g. `BBCA` |
-| GET | `/api/heatmap?index=LQ45` | Regime distribution per sector |
+| GET | `/api/heatmap` | Regime distribution per sector for the 200 largest stocks (`?index=LQ45` to restrict) |
 | POST | `/api/simulate/{symbol}?runs=500&days=30` | 30-day scenario range |
 | POST | `/api/auth/register`, `/api/auth/login` | User accounts, returns a bearer token |
 | GET | `/api/auth/me` | Current user |
@@ -228,13 +228,13 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). They
 | Action | Credits | Notes |
 |---|---|---|
 | Screener tab | 1 | One structured screener call for the 50 LQ45 stocks. The ticker suggestions on the Company tab reuse the same cached call |
-| Heatmap tab | 1 | Its own screener call (up to 100 stocks), separate from the Screener tab's |
-| Company page | 5 | Company report with 4 sections (4) + a screener lookup for that one stock (1), so the health score uses exactly the same inputs as the Screener list |
-| Run simulation | 7, or 2 | Company report (4) + screener lookup (1) + 90-day daily prices and volume (1) + corporate actions (1). Only 2 if the company page was just opened, because the report and screener lookup are then cached. The stress scenarios and exit liquidity reuse the same data, so switching between Normal, Market crash and Market rally is free |
-| Pinned tab | 5 per pinned stock | Each pin is scored like a company page. Stocks already opened within the cache window are free |
-| History, pins list, login | 0 | Stored in Supabase or the local user database; no Sectors calls |
+| Heatmap tab | 1 | One screener call for the 200 largest IDX stocks by market cap, separate from the Screener tab's |
+| Company page | 1 | One screener lookup for that stock, the same data the Screener list uses, so the health score always matches. Falls back to the company report (3) only if the lookup fails |
+| Run simulation | 6, or 5 | Company report with overview, valuation and financials (3) + screener lookup (1) + 90-day daily prices and volume (1) + corporate actions (1). 5 if the company page was just opened, because the lookup is then cached. The stress scenarios and exit liquidity reuse the same data, so switching between Normal, Market crash and Market rally is free |
+| Pinned tab | 1 | All pinned stocks are scored in one screener call. A stock the screener doesn't return is scored from its company report instead (3) |
+| Pin / unpin, history, login | 0 | Stored in Supabase or the local user database; no Sectors calls |
 
-A typical first look at one stock (open the Screener, open a company, run a simulation) costs 1 + 5 + 2 = **8 credits**. Opening it again within the cache window costs nothing.
+A typical first look at one stock (open the Screener, open a company, run a simulation) costs 1 + 1 + 5 = **7 credits**. Opening it again within the cache window costs nothing.
 
 Every response is cached in the backend for `CACHE_TTL_SECONDS` (default 15 minutes), so repeat views are free. The cache is cleared when the backend restarts.
 

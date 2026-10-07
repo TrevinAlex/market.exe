@@ -8,7 +8,7 @@ import httpx
 
 from app.config import settings
 
-REPORT_SECTIONS = ["overview", "valuation", "future", "financials"]
+REPORT_SECTIONS = ["overview", "valuation", "financials"]
 
 SCREEN_SCORING_FIELDS = [
     "last_close_price",
@@ -135,6 +135,13 @@ class SectorsClient:
         sym = self._normalize_symbol(symbol)
         rows = await self.screen_scored(base_where=f"symbol = '{sym}.JK'", limit=1)
         return rows[0] if rows else None
+
+    async def screen_many(self, symbols: list[str]) -> list[dict[str, Any]]:
+        syms = sorted({self._normalize_symbol(s) for s in symbols})
+        if not syms:
+            return []
+        listed = ", ".join(f"'{s}.JK'" for s in syms)
+        return await self.screen_scored(base_where=f"symbol in [{listed}]", limit=len(syms))
 
 
 sectors_client = SectorsClient()

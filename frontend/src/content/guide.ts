@@ -347,7 +347,7 @@ export const GLOSSARY: GlossaryGroup[] = [
       {
         term: 'LQ45',
         meaning:
-          'An Indonesia Stock Exchange (IDX) index of the 45 most liquid stocks, reviewed twice a year. The screener and heatmap use it.',
+          'An Indonesia Stock Exchange (IDX) index of the 45 most liquid stocks, reviewed twice a year. The screener and the backtest use it; the heatmap covers the 200 largest stocks by market cap.',
       },
       {
         term: '52-week range',

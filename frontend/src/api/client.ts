@@ -110,8 +110,9 @@ export const api = {
     return request<ScreenResponse>(`/api/screen?${qs}`, { signal });
   },
 
-  heatmap(index = 'LQ45', signal?: AbortSignal): Promise<HeatmapResponse> {
-    const qs = new URLSearchParams({ index: assertIndex(index) });
+  heatmap(index: string | null = null, limit = 200, signal?: AbortSignal): Promise<HeatmapResponse> {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    if (index) qs.set('index', assertIndex(index));
     return request<HeatmapResponse>(`/api/heatmap?${qs}`, { signal });
   },
 
