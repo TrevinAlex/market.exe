@@ -66,7 +66,7 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string) => void }) {
     <div className="stack">
       <section className="panel" aria-label="Filters">
         <h2 className="panel-title">
-          Screener // {INDEX} ·{' '}
+          Screener · {INDEX} ·{' '}
           <Tip text="Stocks are sorted by their composite health score from 0 to 100. It is the sum of five sub-scores (valuation, momentum, debt, quality and profitability), each worth up to 20 points. Higher means stronger fundamentals.">
             ranked by health score
           </Tip>

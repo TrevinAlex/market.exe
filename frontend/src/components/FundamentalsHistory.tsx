@@ -32,7 +32,7 @@ export function FundamentalsHistory({ years, trend }: Props) {
     <section className="fund-history" aria-label="Fundamentals history">
       <h3 className="panel-title">
         <Tip text="Each fiscal year's ROE, ROA, debt/equity and P/E from Sectors, scored with the same rules as today's health score. Momentum is left out because it needs that year's price range, so the score covers 4 of the 5 parts, rescaled to 0-100. It describes the company's track record; it is not a price forecast.">
-          Fundamentals history // {years[0].year}–{years[years.length - 1].year}
+          Fundamentals history · {years[0].year}–{years[years.length - 1].year}
         </Tip>
         {t && (
           <span className="fund-trend" style={{ color: t.color }}>

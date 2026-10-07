@@ -823,6 +823,7 @@ button {
 
 .subscore-table td.num {
   text-align: right;
+  white-space: nowrap;
 }
 
 .minibar {
@@ -1409,7 +1410,7 @@ body {
 }
 
 .tab[aria-selected='true']::before { content: '> '; color: var(--cyan); }
-.panel-title::before { content: '// '; opacity: 0.6; }
+
 .rc-group::before { content: '> '; opacity: 1; }
 
 body {
@@ -3667,4 +3668,8 @@ section[aria-label='Filters'] .toolbar > .field:not([role='group']):not(.sort-fi
 
 section[aria-label='Filters'] .toolbar > .btn {
   order: 4;
+}
+
+.risk-calc > .panel-title {
+  margin-bottom: -4px;
 }

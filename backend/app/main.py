@@ -41,7 +41,7 @@ from app.security import (
     validate_index,
     validate_symbol,
 )
-from app.services.sectors_client import sectors_client
+from app.services.sectors_client import SCREEN_SCORING_FIELDS, sectors_client
 from app.services.history import history_store
 from app.services.pins import PinLimitError, pin_store
 from app.users import User, issue_user_token, optional_user, require_user, user_store
@@ -175,6 +175,21 @@ async def user_me(user: User = Depends(require_user)) -> UserModel:
 user_only = [Depends(require_user)]
 
 
+async def _score_inputs(symbol: str, report: dict) -> dict:
+    flat = flatten_report(report)
+    try:
+        row = await sectors_client.screen_one(symbol)
+    except Exception as e:
+        if isinstance(e, httpx.HTTPError):
+            _log_sectors_error(e)
+        row = None
+    if row:
+        for key in SCREEN_SCORING_FIELDS:
+            if key in row:
+                flat[key] = row[key]
+    return flat
+
+
 _log = logging.getLogger("uvicorn.error")
 
 
@@ -246,7 +261,7 @@ async def company(
         ) from e
     if not report:
         raise HTTPException(status_code=404, detail=f"Company '{symbol}' not found on IDX.")
-    score = ScoreModel(**score_company(flatten_report(report)).to_dict())
+    score = ScoreModel(**score_company(await _score_inputs(symbol, report)).to_dict())
     if user:
         background.add_task(
             history_store.record,
@@ -315,7 +330,7 @@ async def simulate(
     if not report:
         raise HTTPException(status_code=404, detail=f"Company '{symbol}' not found on IDX.")
 
-    flat = flatten_report(report)
+    flat = await _score_inputs(symbol, report)
     result = score_company(flat)
 
     closes_res, actions_res = await asyncio.gather(
@@ -437,7 +452,7 @@ async def _score_one(symbol: str) -> ScoreModel | None:
         return None
     if not report:
         return None
-    return ScoreModel(**score_company(flatten_report(report)).to_dict())
+    return ScoreModel(**score_company(await _score_inputs(symbol, report)).to_dict())
 
 
 @app.get("/api/pins", response_model=PinsResponse, dependencies=[Depends(_require_pins)])
@@ -445,7 +460,7 @@ async def pins_list(
     user: User = Depends(require_user),
     scores: bool = Query(
         default=False,
-        description="Also score every pinned stock (4 Sectors credits each, cached).",
+        description="Also score every pinned stock (5 Sectors credits each, cached).",
     ),
 ) -> PinsResponse:
     rows = await _supabase_call(pin_store.list(user.uid))

@@ -131,5 +131,10 @@ class SectorsClient:
         where = f"({base_where}) and {surface}" if base_where else surface
         return await self.screen(where=where, order_by="-market_cap", limit=limit, offset=offset)
 
+    async def screen_one(self, symbol: str) -> dict[str, Any] | None:
+        sym = self._normalize_symbol(symbol)
+        rows = await self.screen_scored(base_where=f"symbol = '{sym}.JK'", limit=1)
+        return rows[0] if rows else None
+
 
 sectors_client = SectorsClient()

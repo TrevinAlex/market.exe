@@ -179,7 +179,7 @@ class Scenario:
 SCENARIOS: dict[str, Scenario] = {
     "panic_2020": Scenario(
         id="panic_2020",
-        label="2020-style panic",
+        label="Market crash",
         shift=(0.25, -0.05, -0.04, 0.0),
         intensity=-0.0175,
         vol_mult=2.0,
@@ -197,7 +197,7 @@ SCENARIOS: dict[str, Scenario] = {
     ),
     "rally_2020": Scenario(
         id="rally_2020",
-        label="2020-style rally",
+        label="Market rally",
         shift=(-0.05, 0.25, 0.0, -0.04),
         intensity=0.4,
         vol_mult=1.0,

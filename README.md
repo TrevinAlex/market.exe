@@ -9,7 +9,7 @@ MARKET.EXE turns raw [Sectors](https://sectors.app) data into signals the API do
 - **Market regime.** Each stock is labelled Accumulation, Recovery, Distribution or Stress.
 - **Sector heatmap.** Which LQ45 sectors are under stress.
 - **30-day scenario simulator.** A backtested range of where the price could realistically be in 30 trading days, with a position risk calculator in Rupiah.
-- **Stress scenarios.** One click replays a 2020-style panic or rally on the stock, sized to how LQ45 stocks really moved, so you can see what a crash would do to your money.
+- **Stress scenarios.** One click replays a market crash or market rally on the stock, sized to how LQ45 stocks really moved in 2020, so you can see what a crash would do to your money.
 - **Exit liquidity.** How much of a typical day's trading your amount is, and roughly what selling it quickly would cost.
 - **Fundamentals history.** Each company's yearly ROE, ROA, debt/equity and P/E from the Sectors Company Report, scored with the same rules, so you can see whether its health is improving or deteriorating.
 - **Model report card.** How accurate the simulator was against real prices, including where it's weak, plus a glossary of every term in the app.
@@ -118,8 +118,8 @@ The same request also runs two what-if scenarios, so switching between them in t
 
 | Scenario | What the agents do | Fitted to | Median LQ45 stock |
 |---|---|---|---|
-| 2020-style panic | Panic sellers +25 points, daily moves 2× wilder | 11 Feb – 24 Mar 2020 | −44% |
-| 2020-style rally | Momentum buyers +25 points | 4 Nov – 17 Dec 2020 | +32% |
+| Market crash | Panic sellers +25 points, daily moves 2× wilder | 11 Feb – 24 Mar 2020 | −44% |
+| Market rally | Momentum buyers +25 points | 4 Nov – 17 Dec 2020 | +32% |
 
 `backtest/scenario_calibration.py` found these as the worst and best 30-day stretches for LQ45 since 2017, then fitted each scenario's size to the 40 stocks listed at the time. In the crash, calm and volatile stocks fell about equally, so the panic hits every stock by the same percentage. In the rally, volatile stocks rose more, so the rally scales with each stock's own volatility. The calibration tested both forms for each scenario and kept the better fit.
 
@@ -227,9 +227,14 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). They
 
 | Action | Credits | Notes |
 |---|---|---|
-| Screener / heatmap load | 1 | One structured screener call |
-| Company page | 4 | Company report with 4 sections |
-| Run simulation | 6 | Company report (4) + 90-day daily prices and volume (1) + corporate actions (1). Only 2 if the company page was just opened, since the report is then cached. The stress scenarios and exit liquidity reuse the same data |
+| Screener tab | 1 | One structured screener call for the 50 LQ45 stocks. The ticker suggestions on the Company tab reuse the same cached call |
+| Heatmap tab | 1 | Its own screener call (up to 100 stocks), separate from the Screener tab's |
+| Company page | 5 | Company report with 4 sections (4) + a screener lookup for that one stock (1), so the health score uses exactly the same inputs as the Screener list |
+| Run simulation | 7, or 2 | Company report (4) + screener lookup (1) + 90-day daily prices and volume (1) + corporate actions (1). Only 2 if the company page was just opened, because the report and screener lookup are then cached. The stress scenarios and exit liquidity reuse the same data, so switching between Normal, Market crash and Market rally is free |
+| Pinned tab | 5 per pinned stock | Each pin is scored like a company page. Stocks already opened within the cache window are free |
+| History, pins list, login | 0 | Stored in Supabase or the local user database; no Sectors calls |
+
+A typical first look at one stock (open the Screener, open a company, run a simulation) costs 1 + 5 + 2 = **8 credits**. Opening it again within the cache window costs nothing.
 
 Every response is cached in the backend for `CACHE_TTL_SECONDS` (default 15 minutes), so repeat views are free. The cache is cleared when the backend restarts.
 

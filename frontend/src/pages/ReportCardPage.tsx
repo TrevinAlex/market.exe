@@ -21,7 +21,7 @@ export function ReportCardPage() {
       <section className="panel stack" aria-labelledby="rc-title">
         <div>
           <h2 className="headline rc-headline" id="rc-title">
-            Model report card // <span className="rc-score">{passed}</span> of {REPORT_CARD.length} checks passed
+            Model report card · <span className="rc-score">{passed}</span> of {REPORT_CARD.length} checks passed
           </h2>
           <p className="note">
             How the simulation holds up against real prices. Walk-forward test on {BACKTEST.stocks} LQ45 stocks,{' '}

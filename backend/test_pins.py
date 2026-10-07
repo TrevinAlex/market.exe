@@ -63,6 +63,13 @@ async def _fake_report(symbol):
 
 
 main.sectors_client.company_report = _fake_report
+
+
+async def _no_row(symbol):
+    return None
+
+
+main.sectors_client.screen_one = _no_row
 main.flatten_report = lambda r: r
 
 c = TestClient(main.app)

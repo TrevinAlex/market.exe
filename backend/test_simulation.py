@@ -88,7 +88,31 @@ async def boom(sym):
 
 
 main.sectors_client.company_report = report
+main.sectors_client.screen_one = boom
 client = TestClient(main.app)
+
+SCREEN_ROW = {"symbol": "BBCA.JK", "company_name": "Bank Central Asia", "sector": "Financials",
+              "last_close_price": 6100, "daily_close_change": 0.01, "52_w_high_price": 10000,
+              "52_w_low_price": 7000, "pe_ttm": 12.8, "der_mrq": None, "roe_ttm": 0.215, "roa_ttm": 0.035}
+
+
+async def screen_row(sym):
+    return dict(SCREEN_ROW)
+
+
+async def screen_list(base_where=None, limit=50, offset=0):
+    return [dict(SCREEN_ROW)]
+
+
+r = client.get("/api/company/BBCA")
+assert r.status_code == 200 and r.json()["breakdown"]["valuation"]["input"] == "P/E 15.0", r.text
+
+main.sectors_client.screen_one, main.sectors_client.screen_scored = screen_row, screen_list
+company = client.get("/api/company/BBCA").json()
+listed = client.get("/api/screen?index=LQ45").json()["results"][0]
+assert company["composite"] == listed["composite"] and company["sub_scores"] == listed["sub_scores"], (company, listed)
+assert company["breakdown"]["valuation"]["input"] == "P/E 12.8"
+main.sectors_client.screen_one = boom
 
 main.sectors_client.daily_rows, main.sectors_client.corporate_actions = closes_ok, actions_ok
 r = client.post("/api/simulate/BBCA?runs=200")

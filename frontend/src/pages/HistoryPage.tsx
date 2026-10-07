@@ -73,7 +73,7 @@ export function HistoryPage({ onOpen, refreshKey }: Props) {
 
       {actionError && (
         <div className="alert" role="alert">
-          <span>! ERR // {actionError}</span>
+          <span>! ERR: {actionError}</span>
         </div>
       )}
       {hist.loading && <Scanning label="LOADING HISTORY..." />}

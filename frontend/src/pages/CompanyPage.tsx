@@ -59,10 +59,6 @@ export function CompanyPage({ symbol, onSymbol }: Props) {
               <button type="button" className="btn btn-primary" onClick={sim.run} disabled={sim.loading}>
                 {sim.data ? 'Re-run simulation' : 'Run simulation'}
               </button>
-              <p className="note">
-                Range width comes from this stock's own volatility; known dividends are included. In normal mode agents
-                add trading randomness, not direction; the stress scenarios change who is trading.
-              </p>
             </div>
             {sim.loading && <Scanning label="SIMULATING 500 RUNS × 1000 AGENTS..." />}
             {sim.error != null && !sim.loading && <ErrorAlert error={sim.error} onRetry={sim.run} />}
@@ -426,16 +422,11 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
               </button>
             ))}
           </div>
-          {scn ? (
+          {scn && (
             <p className="scenario-note" role="status">
               <strong>What-if, not a forecast.</strong> {scn.description} Fitted to {scn.window}: real outcomes for{' '}
               {Math.round(scn.fit_inside_p10_p90 * scn.fit_n)} of {scn.fit_n} LQ45 stocks landed inside this scenario's
               P10-P90 range. It describes that episode; the next panic or rally will be different.
-            </p>
-          ) : (
-            <p className="note" style={{ margin: 0 }}>
-              Normal is the backtested forecast. The stress scenarios replay a real 2020 crash or rally on this stock's
-              price and volatility. Switching costs no credits.
             </p>
           )}
         </div>
@@ -448,7 +439,7 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
           color={retColor}
           tip={
             scn
-              ? `The median change across ${sim.runs} runs of the ${scn.label} scenario after ${days} days. In ${scn.window} the median LQ45 stock moved ${formatSignedPct(scn.historical_median_return_pct)}.`
+              ? `The median change across ${sim.runs} runs of the ${scn.label.toLowerCase()} scenario after ${days} days. In ${scn.window} the median LQ45 stock moved ${formatSignedPct(scn.historical_median_return_pct)}.`
               : `The change from today's price to the median (P50) outcome of ${sim.runs} simulated runs after ${days} days. It sits near 0% by design: the model doesn't claim a direction. See REPORT CARD.`
           }
         />
@@ -487,7 +478,7 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
 
       <div>
         <h3 className="panel-title">
-          Price fan // {sim.horizon_days}d horizon · {sim.runs} runs{scn ? ` · ${scn.label.toUpperCase()}` : ''}
+          Price fan · {sim.horizon_days}d horizon · {sim.runs} runs{scn ? ` · ${scn.label.toUpperCase()}` : ''}
         </h3>
         <FanChart
           paths={view.sample_paths}
@@ -501,7 +492,7 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
 
       <div>
         <h3 className="panel-title">
-          Agent mix // {sim.agents.toLocaleString('en-US')} agents{scn ? ` · ${scn.label.toUpperCase()}` : ''}
+          Agent mix · {sim.agents.toLocaleString('en-US')} agents{scn ? ` · ${scn.label.toUpperCase()}` : ''}
         </h3>
         <AgentMixBar mix={view.agent_mix} agents={sim.agents} />
       </div>
@@ -551,7 +542,7 @@ function PositionRiskCalc({ sim, view }: { sim: SimulationResponse; view: SimVie
 
   return (
     <section className="risk-calc" aria-label="Position risk calculator">
-      <h3 className="panel-title">Position risk // what could {amount ? formatIdrCompact(amount) : 'your money'} become?</h3>
+      <h3 className="panel-title">Position risk: what could {amount ? formatIdrCompact(amount) : 'your money'} become?</h3>
       <div className="toolbar">
         <label htmlFor={inputId} className="field">
           IF I INVEST Rp &gt;
@@ -598,7 +589,7 @@ function PositionRiskCalc({ sim, view }: { sim: SimulationResponse; view: SimVie
           <p className="risk-summary">
             {worst.change < 0 ? (
               <>
-                {scn ? `In a ${scn.label}, bad case` : 'Realistic worst case'}:{' '}
+                {scn ? `In a ${scn.label.toLowerCase()}, bad case` : 'Realistic worst case'}:{' '}
                 <strong style={{ color: palette.red }}>{formatIdrCompact(worst.change)}</strong> in {days} trading days,
                 with a 1 in 10 chance it's worse.
               </>
@@ -625,7 +616,7 @@ function PositionRiskCalc({ sim, view }: { sim: SimulationResponse; view: SimVie
                 <>Easy to sell; price impact is negligible.</>
               ) : (
                 <>
-                  Selling it all in one day{scn ? ` in a ${scn.label}` : ''} could cost about{' '}
+                  Selling it all in one day{scn ? ` in a ${scn.label.toLowerCase()}` : ''} could cost about{' '}
                   <strong style={{ color: liq.level === 'hard' ? palette.red : palette.amber }}>
                     {liq.costPct.toFixed(1)}% ({formatIdrCompact(-liq.cost)})
                   </strong>{' '}

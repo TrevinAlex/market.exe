@@ -36,7 +36,7 @@ export function PinnedPage({ onOpen, refreshKey }: Props) {
 
       {pinError && (
         <div className="alert" role="alert">
-          <span>! ERR // {pinError}</span>
+          <span>! ERR: {pinError}</span>
         </div>
       )}
       {res.loading && !res.data && <Scanning label="SCORING PINNED STOCKS..." />}

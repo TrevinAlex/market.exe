@@ -97,7 +97,7 @@ export const REPORT_CARD: ReportRow[] = [
     grade: 'warn',
     label: 'WHAT-IF',
     meaning:
-      'The 2020-style panic and rally scenarios are fitted to the worst (11 Feb–24 Mar 2020, median stock −44%) and ' +
+      'The Market crash and Market rally scenarios are fitted to the worst (11 Feb–24 Mar 2020, median stock −44%) and ' +
       'best (4 Nov–17 Dec 2020, +32%) 30-day stretches for LQ45. Real outcomes landed inside the scenario range for ' +
       '80% and 65% of stocks; the normal forecast caught 1 and 11 of 40. Each is fitted to one episode, so it ' +
       'describes that episode rather than predicting the next one.',
@@ -308,7 +308,7 @@ export const GLOSSARY: GlossaryGroup[] = [
       },
       {
         term: 'Stress scenario',
-        aka: '2020-style panic / rally',
+        aka: 'Market crash / Market rally',
         meaning:
           'A what-if, not a forecast: what this stock could do if a 2020-sized crash or rally hit again. Each one is ' +
           'fitted to how LQ45 stocks really moved in that stretch. Switching scenarios costs no extra API credits.',
