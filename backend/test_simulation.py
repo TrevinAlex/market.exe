@@ -38,6 +38,13 @@ assert 40 < shift < 60, shift
 assert div["events"] == [{"day": 10, "type": "dividend", "amount": 50.0}]
 assert run_simulation(1000, GOOD, runs=50, seed=1, dividends=[(31, 50), (5, 0)])["events"] == []
 
+# Price-reacting agents (off by default): herding widens the range, contrarian
+# narrows it; same seed -> same market noise, so only the agents differ.
+w = lambda s: s["bands"]["p90"] - s["bands"]["p10"]  # noqa: E731
+herd = run_simulation(1000, GOOD, runs=2000, seed=1, daily_vol=0.015, herding=8)
+contra = run_simulation(1000, GOOD, runs=2000, seed=1, daily_vol=0.015, contrarian=8)
+assert w(herd) > w(base) * 1.03 > w(base) > w(contra) * 1.01, (w(herd), w(base), w(contra))
+
 db = base["daily_bands"]
 assert all(len(db[k]) == 31 for k in ("p10", "p25", "p50", "p75", "p90"))
 assert db["p10"][0] == db["p90"][0] == 1000
@@ -75,7 +82,7 @@ async def report(sym):
 
 
 async def closes_ok(sym):
-    return calm
+    return [{"date": f"d{i:03d}", "close": c, "volume": 2_000_000} for i, c in enumerate(calm)]
 
 
 async def actions_ok(sym):
@@ -89,16 +96,24 @@ async def boom(sym):
 main.sectors_client.company_report = report
 client = TestClient(main.app)
 
-main.sectors_client.daily_closes, main.sectors_client.corporate_actions = closes_ok, actions_ok
+main.sectors_client.daily_rows, main.sectors_client.corporate_actions = closes_ok, actions_ok
 r = client.post("/api/simulate/BBCA?runs=200")
 assert r.status_code == 200, r.text
 assert r.json()["vol_method"] == "ml" and r.json()["drift_scale"] == 0.0
+liq = r.json()["liquidity"]
+assert liq["days"] == 20 and liq["avg_daily_volume"] == 2_000_000, liq
+assert 2_000_000 * min(calm[-20:]) <= liq["avg_daily_value"] <= 2_000_000 * max(calm[-20:]), liq
+ids = [s["id"] for s in r.json()["scenarios"]]
+assert ids == ["panic_2020", "rally_2020"], ids
+panic, rally = r.json()["scenarios"]
+assert panic["bands"]["p50"] < r.json()["bands"]["p10"] < r.json()["bands"]["p90"] < rally["bands"]["p50"], r.json()
+assert len(panic["sample_paths"]) == 12 and len(panic["daily_bands"]["p10"]) == 31
 
-main.sectors_client.daily_closes, main.sectors_client.corporate_actions = boom, boom
+main.sectors_client.daily_rows, main.sectors_client.corporate_actions = boom, boom
 r = client.post("/api/simulate/BBCA?runs=200")
 assert r.status_code == 200, r.text
 j = r.json()
-assert j["vol_method"] == "range" and j["events"] == [], j
+assert j["vol_method"] == "range" and j["events"] == [] and j["liquidity"] is None, j
 
 print("OK -- simulation: ML vol, drift removed, dividends applied and parsed, route fail-soft.")
 

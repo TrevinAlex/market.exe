@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { formatIdrCompact, parseRupiah, positionRisk } from './components/positionRisk';
+import { exitLiquidity, formatIdrCompact, formatRupiahInput, parseRupiah, positionRisk } from './components/positionRisk';
+
+describe('formatRupiahInput', () => {
+  it.each([
+    ['10000000', '10.000.000'],
+    ['1000', '1.000'],
+    ['999', '999'],
+    ['10.000.000.00', '1.000.000.000'],
+    ['10.0000', '100.000'],
+    ['007', '7'],
+    ['', ''],
+    ['Rp 5000000', '5.000.000'],
+    ['10jt', '10jt'],
+    ['1,5 jt', '1,5 jt'],
+  ])('%j -> %j', (raw, out) => expect(formatRupiahInput(raw).text).toBe(out));
+
+  it('keeps the caret after the same digit', () => {
+    // Typing a 5th zero at the end of "1.0000" -> "10.000", caret stays at the end.
+    expect(formatRupiahInput('1.0000', 6)).toEqual({ text: '10.000', caret: 6 });
+    // Deleting the "1" from "1.000.000" (caret at 0) -> "000.000" -> "0", caret 0.
+    expect(formatRupiahInput('.000.000', 0)).toEqual({ text: '0', caret: 0 });
+    // Inserting "5" after the first digit of "1.000": "15.000" -> "15.000", caret after the 5.
+    expect(formatRupiahInput('15.000', 2)).toEqual({ text: '15.000', caret: 2 });
+  });
+});
 
 const bands = { p10: 9000, p25: 9500, p50: 10000, p75: 10500, p90: 11200 };
 
@@ -42,5 +66,36 @@ describe('formatIdrCompact', () => {
     expect(formatIdrCompact(850_000, true)).toBe('+Rp 850K');
     expect(formatIdrCompact(10_000_000)).toBe('Rp 10M');
     expect(formatIdrCompact(0, true)).toBe('Rp 0');
+  });
+});
+
+describe('exitLiquidity', () => {
+  it('uses the square-root impact rule', () => {
+    // 4% of a day's trading at 2% daily vol: 2% x sqrt(0.04) = 0.4%.
+    const r = exitLiquidity(4_000_000_000, 100_000_000_000, 0.02)!;
+    expect(r.shareOfDay).toBeCloseTo(0.04);
+    expect(r.costPct).toBeCloseTo(0.4);
+    expect(r.cost).toBeCloseTo(16_000_000);
+    expect(r.daysToExit).toBe(1);
+    expect(r.level).toBe('noticeable');
+  });
+
+  it('grades size against daily trading', () => {
+    expect(exitLiquidity(10_000_000, 100_000_000_000, 0.02)!.level).toBe('easy');
+    const big = exitLiquidity(50_000_000_000, 100_000_000_000, 0.02)!;
+    expect(big.level).toBe('hard');
+    expect(big.daysToExit).toBe(3);
+  });
+
+  it('a wilder market costs more to exit', () => {
+    const calm = exitLiquidity(1e9, 1e11, 0.01)!;
+    const panic = exitLiquidity(1e9, 1e11, 0.02)!;
+    expect(panic.costPct).toBeCloseTo(calm.costPct * 2);
+  });
+
+  it('returns null without data', () => {
+    expect(exitLiquidity(1e9, 0, 0.02)).toBeNull();
+    expect(exitLiquidity(0, 1e11, 0.02)).toBeNull();
+    expect(exitLiquidity(1e9, 1e11, 0)).toBeNull();
   });
 });

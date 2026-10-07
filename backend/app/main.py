@@ -61,8 +61,9 @@ from app.auth import (
     require_admin,
 )
 from app.config import settings
+from app.core.liquidity import liquidity_from_rows
 from app.core.scoring import flatten_report, fundamentals_history, score_company
-from app.core.simulation import predict_daily_vol, run_simulation, upcoming_dividends
+from app.core.simulation import SCENARIOS, predict_daily_vol, run_simulation, upcoming_dividends
 from app.security import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -382,16 +383,17 @@ async def simulate(
     result = score_company(flat)
 
     closes_res, actions_res = await asyncio.gather(
-        sectors_client.daily_closes(symbol),
+        sectors_client.daily_rows(symbol),
         sectors_client.corporate_actions(symbol),
         return_exceptions=True,
     )
-    closes = closes_res if isinstance(closes_res, list) else None
+    rows = closes_res if isinstance(closes_res, list) else None
+    closes = [float(r["close"]) for r in rows] if rows else None
     actions = actions_res if isinstance(actions_res, dict) else None
     daily_vol, vol_method = predict_daily_vol(
         closes, flat.get("52_w_high_price"), flat.get("52_w_low_price")
     )
-    sim = run_simulation(
+    sim_args = dict(
         current_price=result.last_close_price or 0.0,
         sub_scores_norm=result.sub_scores.normalized(),
         runs=runs,
@@ -400,6 +402,23 @@ async def simulate(
         vol_method=vol_method,
         dividends=upcoming_dividends(actions, days),
     )
+    sim = run_simulation(**sim_args)
+    # Stress scenarios run on the same data, so switching between them in the
+    # UI needs no further request and no further credits.
+    scenarios = []
+    for scn in SCENARIOS.values():
+        s = run_simulation(**sim_args, scenario=scn, sample_count=12)
+        scenarios.append({
+            "id": scn.id,
+            "label": scn.label,
+            "window": scn.window,
+            "description": scn.description,
+            "fit_inside_p10_p90": scn.fit_inside_p10_p90,
+            "fit_n": scn.fit_n,
+            "historical_median_return_pct": scn.historical_median_return_pct,
+            **{k: s[k] for k in ("daily_vol", "agent_mix", "bands", "daily_bands",
+                                 "expected_return_pct", "prob_price_up", "sample_paths")},
+        })
     if user:
         background.add_task(
             history_store.record,
@@ -423,6 +442,8 @@ async def simulate(
         **sim,
         fundamentals=fund["years"],
         fundamentals_trend=fund["trend"],
+        scenarios=scenarios,
+        liquidity=liquidity_from_rows(rows),
     )
 
 

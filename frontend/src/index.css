@@ -1248,6 +1248,48 @@ button {
 .risk-summary .dim {
   font-size: 11px;
 }
+.risk-summary.liquidity {
+  border-left: 3px solid var(--cyan, #00e5ff);
+  padding-left: 8px;
+}
+.risk-summary.liquidity-noticeable {
+  border-left-color: var(--amber, #ffb000);
+}
+.risk-summary.liquidity-hard {
+  border-left-color: var(--red, #ff3b5c);
+}
+
+.scenario-switch {
+  display: grid;
+  gap: 8px;
+}
+.scenario-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.scenario-btn[aria-pressed='true'] {
+  border-color: var(--cyan, #00e5ff);
+  color: var(--cyan, #00e5ff);
+  background: var(--panel-2);
+}
+.scenario-btn.scenario-panic[aria-pressed='true'] {
+  border-color: var(--red, #ff3b5c);
+  color: var(--red, #ff3b5c);
+}
+.scenario-btn.scenario-rally[aria-pressed='true'] {
+  border-color: var(--amber, #ffb000);
+  color: var(--amber, #ffb000);
+}
+.scenario-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px dashed var(--border);
+  background: var(--panel-2);
+  padding: 8px 10px;
+}
 
 .fund-history {
   display: grid;

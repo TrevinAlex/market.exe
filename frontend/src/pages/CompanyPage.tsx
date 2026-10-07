@@ -1,6 +1,6 @@
-import { useEffect, useId, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { api, baseTicker, normalizeTicker } from '../api/client';
-import type { Regime, Score, ScreenResponse, SimulationResponse } from '../api/types';
+import type { AgentMix, Bands, Regime, ScenarioResult, Score, ScreenResponse, SimulationResponse } from '../api/types';
 import { AgentMixBar } from '../components/AgentMixBar';
 import { FanChart } from '../components/FanChart';
 import { FundamentalsHistory } from '../components/FundamentalsHistory';
@@ -16,7 +16,15 @@ import { useCompany } from '../hooks/useCompany';
 import { useAsync } from '../hooks/useAsync';
 import { useSimulate } from '../hooks/useSimulate';
 import { formatIdr, formatPct01, formatSignedPct } from '../theme/format';
-import { LOT_SIZE, formatIdrCompact, parseRupiah, positionRisk } from '../components/positionRisk';
+import {
+  LOT_SIZE,
+  PARTICIPATION,
+  exitLiquidity,
+  formatIdrCompact,
+  formatRupiahInput,
+  parseRupiah,
+  positionRisk,
+} from '../components/positionRisk';
 import {
   REGIME_MEANING,
   SUB_SCORE_KEYS,
@@ -52,8 +60,8 @@ export function CompanyPage({ symbol, onSymbol }: Props) {
                 {sim.data ? 'Re-run simulation' : 'Run simulation'}
               </button>
               <p className="note">
-                Range width comes from this stock's own volatility; known dividends are included. Agents add trading
-                randomness, not direction.
+                Range width comes from this stock's own volatility; known dividends are included. In normal mode agents
+                add trading randomness, not direction; the stress scenarios change who is trading.
               </p>
             </div>
             {sim.loading && <Scanning label="SIMULATING 500 RUNS × 1000 AGENTS..." />}
@@ -363,58 +371,129 @@ function CompanyOverview({ score }: { score: Score }) {
   );
 }
 
+/** The numbers one view (normal market or a stress scenario) shows. */
+interface SimView {
+  id: string;
+  scenario: ScenarioResult | null;
+  bands: Bands;
+  daily_bands?: Record<keyof Bands, number[]> | null;
+  sample_paths: number[][];
+  expected_return_pct: number;
+  prob_price_up: number;
+  agent_mix: AgentMix;
+  daily_vol: number | undefined;
+}
+
+function viewsOf(sim: SimulationResponse): SimView[] {
+  const normal: SimView = {
+    id: 'normal',
+    scenario: null,
+    bands: sim.bands,
+    daily_bands: sim.daily_bands,
+    sample_paths: sim.sample_paths,
+    expected_return_pct: sim.expected_return_pct,
+    prob_price_up: sim.prob_price_up,
+    agent_mix: sim.agent_mix,
+    daily_vol: sim.daily_vol,
+  };
+  return [normal, ...(sim.scenarios ?? []).map((s) => ({ ...s, scenario: s }))];
+}
+
 function SimulationPanel({ sim }: { sim: SimulationResponse }) {
-  const ret = sim.expected_return_pct;
+  const views = useMemo(() => viewsOf(sim), [sim]);
+  const [viewId, setViewId] = useState('normal');
+  const view = views.find((v) => v.id === viewId) ?? views[0];
+  const scn = view.scenario;
+  const ret = view.expected_return_pct;
   const retColor = ret > 0 ? palette.cyan : ret < 0 ? palette.red : palette.text;
-  const up = sim.prob_price_up;
+  const up = view.prob_price_up;
   const days = sim.horizon_days;
 
   return (
     <div className="stack">
+      {views.length > 1 && (
+        <div className="scenario-switch">
+          <div className="scenario-buttons" role="group" aria-label="Market scenario">
+            <span className="field">MARKET &gt;</span>
+            {views.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className={`btn scenario-btn${v.scenario ? ` scenario-${v.id.split('_')[0]}` : ''}`}
+                aria-pressed={v.id === view.id}
+                onClick={() => setViewId(v.id)}
+              >
+                {v.scenario ? v.scenario.label : 'Normal'}
+              </button>
+            ))}
+          </div>
+          {scn ? (
+            <p className="scenario-note" role="status">
+              <strong>What-if, not a forecast.</strong> {scn.description} Fitted to {scn.window}: real outcomes for{' '}
+              {Math.round(scn.fit_inside_p10_p90 * scn.fit_n)} of {scn.fit_n} LQ45 stocks landed inside this scenario's
+              P10-P90 range. It describes that episode; the next panic or rally will be different.
+            </p>
+          ) : (
+            <p className="note" style={{ margin: 0 }}>
+              Normal is the backtested forecast. The stress scenarios replay a real 2020 crash or rally on this stock's
+              price and volatility. Switching costs no credits.
+            </p>
+          )}
+        </div>
+      )}
+
       <dl className="stat-grid" style={{ margin: 0 }}>
         <Stat
-          label="Expected return"
+          label={scn ? 'Scenario median' : 'Expected return'}
           value={formatSignedPct(ret)}
           color={retColor}
-          tip={`The change from today's price to the median (P50) outcome of ${sim.runs} simulated runs after ${days} days. It sits near 0% by design: the model doesn't claim a direction. See REPORT CARD.`}
+          tip={
+            scn
+              ? `The median change across ${sim.runs} runs of the ${scn.label} scenario after ${days} days. In ${scn.window} the median LQ45 stock moved ${formatSignedPct(scn.historical_median_return_pct)}.`
+              : `The change from today's price to the median (P50) outcome of ${sim.runs} simulated runs after ${days} days. It sits near 0% by design: the model doesn't claim a direction. See REPORT CARD.`
+          }
         />
         <Stat
           label="Probability up"
           value={formatPct01(up)}
           color={up >= 0.5 ? palette.cyan : palette.amber}
-          tip={`The share of simulated runs that ended above today's price after ${days} days. Around 50% is expected: backtests showed 30-day direction is a coin flip, so the model doesn't claim one. Below 50% usually means a dividend is due. See REPORT CARD.`}
+          tip={
+            scn
+              ? `The share of runs in this scenario that ended above today's price after ${days} days.`
+              : `The share of simulated runs that ended above today's price after ${days} days. Around 50% is expected: backtests showed 30-day direction is a coin flip, so the model doesn't claim one. Below 50% usually means a dividend is due. See REPORT CARD.`
+          }
         />
         <Stat
           label="Bearish (p10)"
-          value={formatIdr(sim.bands.p10)}
+          value={formatIdr(view.bands.p10)}
           color={palette.red}
           tip={`A plausible downside case. 10% of simulated runs ended at or below this price after ${days} days, and 90% ended above it.`}
         />
         <Stat
           label="Median (p50)"
-          value={formatIdr(sim.bands.p50)}
+          value={formatIdr(view.bands.p50)}
           tip={`The middle outcome. Half of the simulated runs ended above this price after ${days} days and half ended below it.`}
         />
         <Stat
           label="Bullish (p90)"
-          value={formatIdr(sim.bands.p90)}
+          value={formatIdr(view.bands.p90)}
           color={palette.cyan}
           tip={`A plausible upside case. Only 10% of simulated runs ended above this price after ${days} days.`}
         />
       </dl>
 
-      <PositionRiskCalc sim={sim} />
+      <PositionRiskCalc sim={sim} view={view} />
 
       <FundamentalsHistory years={sim.fundamentals ?? []} trend={sim.fundamentals_trend} />
 
       <div>
         <h3 className="panel-title">
-          Price fan // {sim.horizon_days}d horizon · {sim.runs} runs
+          Price fan // {sim.horizon_days}d horizon · {sim.runs} runs{scn ? ` · ${scn.label.toUpperCase()}` : ''}
         </h3>
         <FanChart
-          paths={sim.sample_paths}
-          bands={sim.bands}
-          dailyBands={sim.daily_bands ?? undefined}
+          paths={view.sample_paths}
+          bands={view.bands}
+          dailyBands={view.daily_bands ?? undefined}
           events={sim.events ?? []}
           currentPrice={sim.current_price}
           horizonDays={sim.horizon_days}
@@ -422,21 +501,37 @@ function SimulationPanel({ sim }: { sim: SimulationResponse }) {
       </div>
 
       <div>
-        <h3 className="panel-title">Agent mix // {sim.agents.toLocaleString('en-US')} agents</h3>
-        <AgentMixBar mix={sim.agent_mix} agents={sim.agents} />
+        <h3 className="panel-title">
+          Agent mix // {sim.agents.toLocaleString('en-US')} agents{scn ? ` · ${scn.label.toUpperCase()}` : ''}
+        </h3>
+        <AgentMixBar mix={view.agent_mix} agents={sim.agents} />
       </div>
     </div>
   );
 }
 
-function PositionRiskCalc({ sim }: { sim: SimulationResponse }) {
+function PositionRiskCalc({ sim, view }: { sim: SimulationResponse; view: SimView }) {
   const inputId = useId();
   const hintId = useId();
   const [text, setText] = useState('10.000.000');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const caretRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    // Put the caret back after the same digit once the dots are re-inserted.
+    if (caretRef.current != null && inputRef.current && document.activeElement === inputRef.current) {
+      inputRef.current.setSelectionRange(caretRef.current, caretRef.current);
+    }
+    caretRef.current = null;
+  }, [text]);
   const amount = parseRupiah(text);
-  const risk = amount == null ? null : positionRisk(amount, sim.current_price, sim.bands);
+  const risk = amount == null ? null : positionRisk(amount, sim.current_price, view.bands);
   const days = sim.horizon_days;
   const worst = risk?.outcomes[0];
+  const scn = view.scenario;
+  const liq =
+    amount != null && sim.liquidity && view.daily_vol
+      ? exitLiquidity(amount, sim.liquidity.avg_daily_value, view.daily_vol)
+      : null;
 
   const labels: Record<string, { name: string; color: string; tip: string }> = {
     p10: {
@@ -465,10 +560,15 @@ function PositionRiskCalc({ sim }: { sim: SimulationResponse }) {
         </label>
         <input
           id={inputId}
+          ref={inputRef}
           className="input"
           inputMode="numeric"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            const next = formatRupiahInput(e.target.value, e.target.selectionStart ?? e.target.value.length);
+            caretRef.current = next.caret;
+            setText(next.text);
+          }}
           aria-invalid={amount == null}
           aria-describedby={hintId}
           style={{ width: 160 }}
@@ -500,16 +600,43 @@ function PositionRiskCalc({ sim }: { sim: SimulationResponse }) {
           <p className="risk-summary">
             {worst.change < 0 ? (
               <>
-                Realistic worst case: <strong style={{ color: palette.red }}>{formatIdrCompact(worst.change)}</strong>{' '}
-                in {days} trading days, with a 1 in 10 chance it's worse.
+                {scn ? `In a ${scn.label}, bad case` : 'Realistic worst case'}:{' '}
+                <strong style={{ color: palette.red }}>{formatIdrCompact(worst.change)}</strong> in {days} trading days,
+                with a 1 in 10 chance it's worse.
               </>
             ) : (
               <>Even the bad case ends above today's price; dividends or a calm stock can do that.</>
             )}{' '}
             <span className="dim">
-              Backtested: real outcomes fell below the bad case about 1 in 10 times. Excludes fees and taxes.
+              {scn
+                ? `Scenario sized to ${scn.window}, not a forecast. Excludes fees and taxes.`
+                : 'Backtested: real outcomes fell below the bad case about 1 in 10 times. Excludes fees and taxes.'}
             </span>
           </p>
+          {liq && sim.liquidity && (
+            <p className={`risk-summary liquidity liquidity-${liq.level}`}>
+              <Tip
+                text={`Typical day = median traded value over the last ${sim.liquidity.days} trading days (Sectors daily data). Cost uses the square-root rule from market-impact research: daily volatility × √(your amount ÷ a day's trading). A rough estimate that ignores bid-ask spread and auto-rejection limits. Days to exit assume you sell at most ${Math.round(PARTICIPATION * 100)}% of each day's trading.`}
+              >
+                Exit liquidity
+              </Tip>
+              : your {formatIdrCompact(amount!)} is{' '}
+              <strong>{liq.shareOfDay < 0.001 ? '<0.1' : (liq.shareOfDay * 100).toFixed(liq.shareOfDay < 0.1 ? 1 : 0)}%</strong>{' '}
+              of a typical day's trading ({formatIdrCompact(sim.liquidity.avg_daily_value)}).{' '}
+              {liq.level === 'easy' ? (
+                <>Easy to sell; price impact is negligible.</>
+              ) : (
+                <>
+                  Selling it all in one day{scn ? ` in a ${scn.label}` : ''} could cost about{' '}
+                  <strong style={{ color: liq.level === 'hard' ? palette.red : palette.amber }}>
+                    {liq.costPct.toFixed(1)}% ({formatIdrCompact(-liq.cost)})
+                  </strong>{' '}
+                  below the quoted price
+                  {liq.daysToExit > 1 ? `, or take about ${liq.daysToExit} trading days to sell without moving it` : ''}.
+                </>
+              )}
+            </p>
+          )}
         </>
       )}
     </section>

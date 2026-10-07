@@ -17,7 +17,7 @@ export const BACKTEST = {
   forecasts: 15426,
   years: '2019–2026',
   horizonDays: 30,
-  source: 'Yahoo Finance daily prices',
+  source: 'daily closing prices',
 } as const;
 
 export const REPORT_CARD: ReportRow[] = [
@@ -77,6 +77,30 @@ export const REPORT_CARD: ReportRow[] = [
       'Nothing we tested beat a coin flip at calling the direction over 30 days: not the agent mix, not a logistic ' +
       'regression, not boosted trees. The 52% in the latest run is no better than always guessing "down" (53%). ' +
       "So the app doesn't claim to know direction. Probability up stays near 50% on purpose.",
+  },
+  {
+    metric: 'Agents that react to the price',
+    result: 'no gain',
+    target: 'better than ignoring the price',
+    grade: 'fail',
+    label: 'REJECTED',
+    meaning:
+      'We let agents react to the last 5 days: herding (falls recruit panic sellers) and contrarian (falls recruit ' +
+      'value buyers). Strengths were picked on 2019–2022 and judged on 2023–2026. Herding made the ranges worse; ' +
+      'contrarian was within random noise and pulled the 80% range below target. So the normal forecast keeps ' +
+      'agents that ignore the price.',
+  },
+  {
+    metric: 'Stress scenarios match real 2020 episodes',
+    result: '32 / 40 panic · 26 / 40 rally',
+    target: '80% inside P10–P90',
+    grade: 'warn',
+    label: 'WHAT-IF',
+    meaning:
+      'The 2020-style panic and rally scenarios are fitted to the worst (11 Feb–24 Mar 2020, median stock −44%) and ' +
+      'best (4 Nov–17 Dec 2020, +32%) 30-day stretches for LQ45. Real outcomes landed inside the scenario range for ' +
+      '80% and 65% of stocks; the normal forecast caught 1 and 11 of 40. Each is fitted to one episode, so it ' +
+      'describes that episode rather than predicting the next one.',
   },
   {
     metric: 'Health score as a return predictor',
@@ -279,7 +303,27 @@ export const GLOSSARY: GlossaryGroup[] = [
         meaning:
           "1,000 simulated traders: panic sellers, momentum buyers, value buyers, profit takers and passive holders. " +
           "The mix is set from the stock's sub-scores and adds realistic day-to-day randomness. Their overall push up " +
-          'or down is switched off, because the backtest showed it made forecasts worse.',
+          'or down is switched off, because the backtest showed it made forecasts worse. In the stress scenarios ' +
+          'the crowd changes: panic sellers or momentum buyers flood in and move the price.',
+      },
+      {
+        term: 'Stress scenario',
+        aka: '2020-style panic / rally',
+        meaning:
+          'A what-if, not a forecast: what this stock could do if a 2020-sized crash or rally hit again. Each one is ' +
+          'fitted to how LQ45 stocks really moved in that stretch. Switching scenarios costs no extra API credits.',
+        good: 'Use it to ask "could I live with this loss?" before buying.',
+        bad: 'Not a prediction that a crash or rally is coming.',
+      },
+      {
+        term: 'Exit liquidity',
+        meaning:
+          "How easily you could sell your amount. Compares it with a typical day's trading (median of the last 20 " +
+          'trading days) and estimates the price impact of selling it all in one day with the square-root rule from ' +
+          'market-impact research: daily volatility × √(your amount ÷ a day\'s trading). A rough estimate that ' +
+          'ignores bid-ask spread and auto-rejection limits.',
+        good: "Under 1% of a day's trading: easy to sell.",
+        bad: "Over 10%: selling quickly moves the price against you, or takes several days.",
       },
       {
         term: 'Daily volatility',

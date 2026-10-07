@@ -98,18 +98,22 @@ class SectorsClient:
             return None
         return data
 
-    async def daily_closes(self, symbol: str) -> list[float]:
-        """Last 90 calendar days (~60 trading days) of closes, oldest first.
+    async def daily_rows(self, symbol: str) -> list[dict[str, Any]]:
+        """Last 90 calendar days (~60 trading days) of daily rows, oldest first.
 
-        1 credit (cached). Feeds the volatility model in the simulation.
+        1 credit (cached). Each row has close, volume (shares) and market_cap.
+        Feeds the volatility model and the exit-liquidity estimate.
         """
         sym = self._normalize_symbol(symbol)
         end = date.today()
         params = {"start": (end - timedelta(days=90)).isoformat(), "end": end.isoformat()}
         data = await self._get(f"/daily/{sym}/", params)
         rows = data if isinstance(data, list) else []
-        rows = sorted((r for r in rows if isinstance(r, dict) and r.get("close")), key=lambda r: r.get("date", ""))
-        return [float(r["close"]) for r in rows]
+        return sorted((r for r in rows if isinstance(r, dict) and r.get("close")), key=lambda r: r.get("date", ""))
+
+    async def daily_closes(self, symbol: str) -> list[float]:
+        """Closes from daily_rows (same cached call, no extra credit)."""
+        return [float(r["close"]) for r in await self.daily_rows(symbol)]
 
     async def corporate_actions(self, symbol: str) -> dict[str, Any]:
         """Dividends, AGMs, splits, rights issues... for one company. 1 credit (cached)."""

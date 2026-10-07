@@ -89,7 +89,7 @@ async def _no_actions(symbol):
     return {}
 
 
-main.sectors_client.daily_closes = _no_closes
+main.sectors_client.daily_rows = _no_closes
 main.sectors_client.corporate_actions = _no_actions
 main.flatten_report = lambda r: r
 

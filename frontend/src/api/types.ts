@@ -61,6 +61,29 @@ export interface SimEvent {
   amount: number;
 }
 
+export interface ScenarioResult {
+  id: string;
+  label: string;
+  window: string;
+  description: string;
+  fit_inside_p10_p90: number;
+  fit_n: number;
+  historical_median_return_pct: number;
+  daily_vol: number;
+  agent_mix: AgentMix;
+  bands: Bands;
+  daily_bands: Record<keyof Bands, number[]>;
+  expected_return_pct: number;
+  prob_price_up: number;
+  sample_paths: number[][];
+}
+
+export interface Liquidity {
+  avg_daily_value: number;
+  avg_daily_volume: number;
+  days: number;
+}
+
 export interface SimulationResponse {
   symbol: string;
   current_price: number;
@@ -78,6 +101,8 @@ export interface SimulationResponse {
   sample_paths: number[][];
   fundamentals?: FundamentalsYear[];
   fundamentals_trend?: 'improving' | 'stable' | 'deteriorating' | null;
+  scenarios?: ScenarioResult[];
+  liquidity?: Liquidity | null;
 }
 
 export interface FundamentalsYear {

@@ -86,6 +86,29 @@ class FundamentalsYear(BaseModel):
     score: float | None
 
 
+class ScenarioModel(BaseModel):
+    id: str
+    label: str
+    window: str
+    description: str
+    fit_inside_p10_p90: float
+    fit_n: int
+    historical_median_return_pct: float
+    daily_vol: float
+    agent_mix: AgentMixModel
+    bands: BandsModel
+    daily_bands: dict[str, list[float]]
+    expected_return_pct: float
+    prob_price_up: float
+    sample_paths: list[list[float]]
+
+
+class LiquidityModel(BaseModel):
+    avg_daily_value: float
+    avg_daily_volume: float
+    days: int
+
+
 class SimulationResponse(BaseModel):
     symbol: str
     current_price: float
@@ -95,6 +118,7 @@ class SimulationResponse(BaseModel):
     daily_vol: float
     vol_method: str
     drift_scale: float
+    scenario: str | None = None
     events: list[SimEvent] = []
     agent_mix: AgentMixModel
     bands: BandsModel
@@ -104,6 +128,8 @@ class SimulationResponse(BaseModel):
     sample_paths: list[list[float]]
     fundamentals: list[FundamentalsYear] = []
     fundamentals_trend: str | None = None
+    scenarios: list[ScenarioModel] = []
+    liquidity: LiquidityModel | None = None
 
 
 class HistoryEntry(BaseModel):
