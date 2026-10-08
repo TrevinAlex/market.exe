@@ -1,0 +1,26 @@
+# SITE_ADDRESS comes from docker-compose (.env in the project root).
+#   marketexe.felixfanady.com -> Caddy gets a Let's Encrypt cert automatically (needs ports 80/443 open)
+#   :80                       -> plain HTTP, use when another proxy / tunnel terminates TLS
+{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	# API + liveness go to the FastAPI container
+	@backend path /api/* /health
+	handle @backend {
+		reverse_proxy backend:8000
+	}
+
+	# SPA: static files, fall back to index.html
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

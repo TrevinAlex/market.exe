@@ -1,0 +1,34 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      # CORS whitelist: the public domain (same-origin in practice, whitelisted anyway)
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://marketexe.felixfanady.com}
+      # keep the SQLite user DB on the persistent volume
+      USERS_DB_PATH: /data/users.db
+    volumes:
+      - users-data:/data
+    expose:
+      - "8000"   # internal only, reached through the web container
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-marketexe.felixfanady.com}
+    ports:
+      # host port 9001 -> Caddy :80 (plain HTTP; TLS is handled by an upstream proxy/tunnel)
+      - "${WEB_PORT:-9001}:80"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  users-data:
+  caddy-data:
+  caddy-config:
