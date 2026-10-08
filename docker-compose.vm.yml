@@ -1,30 +1,33 @@
+# Compose untuk VM Ubuntu: pakai image dari Docker Hub, tanpa build.
+#
+# Di VM, siapkan folder berisi:
+#   docker-compose.yml  (file ini, di-rename)
+#   backend.env         (isi dari backend/.env di laptop)
+#   .env                (WEB_PORT, ALLOWED_ORIGINS, TAG - opsional)
+#
+# Jalankan:  docker compose pull && docker compose up -d
 services:
   backend:
     image: felixfanady07/marketexe-backend:${TAG:-latest}
-    build: ./backend
     restart: unless-stopped
-    env_file: ./backend/.env
+    env_file: ./backend.env
     environment:
-      # CORS whitelist: the public domain (same-origin in practice, whitelisted anyway)
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://marketexe.felixfanady.com}
-      # keep the SQLite user DB on the persistent volume
       USERS_DB_PATH: /data/users.db
     volumes:
       - users-data:/data
     expose:
-      - "8000"   # internal only, reached through the web container
+      - "8000"
 
   web:
     image: felixfanady07/marketexe-web:${TAG:-latest}
-    build: ./frontend
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
     environment:
-      SITE_ADDRESS: ${SITE_ADDRESS:-marketexe.felixfanady.com}
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
     ports:
-      # host port 9001 -> Caddy :80 (plain HTTP; TLS is handled by an upstream proxy/tunnel)
       - "${WEB_PORT:-9001}:80"
     volumes:
       - caddy-data:/data
