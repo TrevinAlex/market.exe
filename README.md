@@ -1,5 +1,7 @@
 # MARKET.EXE
 
+## The live demo is available here: https://marketexe.felixfanady.com/
+
 **Stock health and profitability simulator for the Indonesia Stock Exchange (IDX).**
 Built for the Sectors Hackathon 2026, Track 3 · Market Intelligence.
 
